@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>XYZ Studio to Tangram</title>
+
+    <style>
+
+    body {
+        margin: 0px;
+        border: 0px;
+        padding: 0px;
+    }
+
+    #map {
+        background: rgba(0, 0, 0, 0);
+        position: absolute;
+        width: 100%;
+        height: 100%;
+    }
+
+    .featureTable {
+        display: table;
+        background: white;
+        opacity: 0.85;
+    }
+
+    .featureRow {
+        display: table-row;
+        text-align: left;
+    }
+
+    .featureCell {
+        display: table-cell;
+        padding: 2px 4px;
+    }
+
+    .codeText {
+        font: Courier;
+        background: whitesmoke;
+        padding: 0px 4px;
+    }
+
+    </style>
+
+    <!-- Leaflet -->
+    <script defer src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+
+    <!-- Tangram library -->
+    <script type="module" src="https://unpkg.com/tangram/dist/tangram.debug.mjs"></script>
+    <script nomodule src="https://unpkg.com/tangram/dist/tangram.debug.js"></script>
+
+    <!-- XYZ Studio to Tangram conversion library-->
+    <script src="dist/xyz-to-tangram.js"></script>
+
+    <!-- Demo app -->
+    <!-- use an inline module script, because they are deferred, and will wait for the Tangram .mjs module to load -->
+    <script type="module">
+
+    (async () => { // wrap in immediately invoked async function so we can use `await`
+        // Test XYZ project ids
+        // 'daf86376-b159-4b9e-bee3-04aa6aca6a10' // school polys
+        // '8ec36215-1d0c-4c63-8120-fad8770dd36c' // lines/subways
+        // 'a2449f3f-e72a-4076-a927-7ac539a05b0e' // points/flags
+
+        // Get `project_id` query string parameter
+        let xyzProjectId;
+        const params = new URLSearchParams(document.location.search.slice(1));
+        if (params.get('project_id')) {
+            xyzProjectId = params.get('project_id');
+        }
+        else {
+            document.getElementById('no-viz').style.display = 'block';
+            return;
+        }
+
+        // Load XYZ studio viz JSON
+        const xyzURL = `https://xyz.api.here.com/project-api/projects/${xyzProjectId}`;
+        let xyzStyle = await fetch(xyzURL).then(r => {
+            if (!r.ok) {
+                // alert(`Couldn't load XYZ Studio project id ${xyzProjectId}!`);
+                document.getElementById('no-viz').style.display = 'block';
+                document.getElementById('no-viz').innerHTML =
+                    `Couldn't load XYZ Studio project id <span class="codeText">${xyzProjectId}</span>!`;
+                throw Error(`Couldn't load XYZ Studio project id ${xyzProjectId}!`);
+            }
+            return r.json();
+        });
+
+        // Convert to Tangram scene
+        let tgScene = xyzToTangram(xyzStyle);
+
+        window.console.log('tangram scene', tgScene);
+
+        // Create a Leaflet map
+        const map = L.map('map', {
+            maxZoom: 22,
+            zoomSnap: 0,
+            keyboard: false
+        });
+
+        // Default start position
+        map.setView([40.70531887544228, -74.00976419448853], 11);
+
+        let basemap = {
+            import: [
+                // 'https://www.nextzen.org/carto/refill-style/11/refill-style.zip',
+                // 'https://www.nextzen.org/carto/refill-style/11/themes/label-5.zip',
+                // 'https://www.nextzen.org/carto/refill-style/11/themes/no-texture.zip'
+                'https://sensescape.github.io/xyz-dots/scene.yaml'
+            ]
+        };
+
+        // Create Tangram as a Leaflet layer
+        const layer = Tangram.leafletLayer({
+            scene: {
+                ...basemap,
+                global: { sdk_api_key: 'NaqqS33fTUmyQcvbuIUCKA' },
+                ...tgScene
+            },
+            events: {
+                hover: onHover
+            },
+            // introspection: true,
+            // logLevel: 'debug'
+        });
+
+        layer.addTo(map);
+
+        // Feature selection
+        const tooltip = L.tooltip();
+        layer.bindTooltip(tooltip);
+        map.on('zoom', function () { layer.closeTooltip() }); // close tooltip when zooming
+
+        function onHover({ feature, changed, leaflet_event }) {
+            if (feature) {
+                if (changed) {
+                    tooltip.setContent(getFeaturePropsHTML(feature));
+                }
+                layer.openTooltip(leaflet_event.latlng);
+            }
+            else {
+                layer.closeTooltip();
+            }
+        }
+
+        // Get an HTML fragment with feature properties
+        function getFeaturePropsHTML(feature) {
+            let info = '<div class="featureTable">';
+            Object.keys(feature.properties).forEach(function (p) {
+                const prop = feature.properties[p];
+                if (prop) {
+                    const str = (prop != null && typeof prop === 'object') ? JSON.stringify(prop, null, 2) : prop;
+                    info += '<div class="featureRow"><div class="featureCell"><b>' + p + '</b></div>' +
+                        '<div class="featureCell">' + str + '</div></div>';
+                }
+            });
+            info += '<div class="featureRow"><div class="featureCell"><b>scene layers</b></div>' +
+                '<div class="featureCell">' + feature.layers.join('<br>') + '</div></div>';
+            info += '</div>';
+            return info;
+        }
+
+        // Debug
+        Object.assign(window, { xyzStyle, tgScene, layer, scene: layer.scene });
+    })();
+
+    </script>
+</head>
+<body>
+    <div id="no-viz" style="display: none; padding: 20px; font: 32px Helvetica;">No XYZ Studio project id specified, please set
+        <span class="codeText">project_id</span> parameter on query string.</div>
+    <div id="map"></div>
+
+</body>
+</html>

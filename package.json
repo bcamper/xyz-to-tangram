@@ -1,0 +1,22 @@
+{
+  "name": "xyz-to-tangram",
+  "version": "0.0.1",
+  "description": "Convert HERE XYZ Studio visualizations to Tangram scenes",
+  "main": "index.js",
+  "scripts": {
+    "start": "run-p watch serve",
+    "watch": "rollup index.js --file dist/xyz-to-tangram.js --format=umd --name 'xyzToTangram' --watch",
+    "build": "rollup index.js --file dist/xyz-to-tangram.js --format=umd --name 'xyzToTangram'",
+    "serve": "http-server -p 7000 --cors -c-1",
+    "lint": "eslint *.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "acorn": "^6.0.7",
+    "eslint": "^5.13.0",
+    "http-server": "^0.11.1",
+    "npm-run-all": "^4.1.5",
+    "rollup": "^1.1.2"
+  }
+}
