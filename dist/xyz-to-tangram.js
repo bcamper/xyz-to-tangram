@@ -90,12 +90,16 @@
             };
 
             // The geometry types in this XYZ layer (Point, Line, Polygon)
-            // const geomTypes = xyzLayer.geometries; // Sometimes empty?
-            const geomTypes = [];
-            const geomCounts = xyzLayer.geometriesCount;
-            if (geomCounts['Point'] || geomCounts['MultiPoint']) geomTypes.push('Point');
-            if (geomCounts['LineString'] || geomCounts['MultiLineString']) geomTypes.push('Line');
-            if (geomCounts['Polygon'] || geomCounts['MultiPolygon']) geomTypes.push('Polygon');
+            const geomTypes = []; // `geometries` field is unreliable, doesn't always match features present in layer
+            const geomCounts = xyzLayer.geometriesCount; // use `geometriesCount` instead
+            if (geomCounts) {
+                if (geomCounts['Point'] || geomCounts['MultiPoint']) geomTypes.push('Point');
+                if (geomCounts['LineString'] || geomCounts['MultiLineString']) geomTypes.push('Line');
+                if (geomCounts['Polygon'] || geomCounts['MultiPolygon']) geomTypes.push('Polygon');
+            }
+            else { // sometimes `geometriesCount` is also missing, check for all geometry types in this case
+                geomTypes.push('Point', 'Line', 'Polygon');
+            }
 
             geomTypes.forEach(geomType => {
                 makeGeometryTypeLayer({ xyz, xyzLayer, xyzLayerIndex, geomType, tgLayers });
