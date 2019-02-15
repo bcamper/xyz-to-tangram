@@ -266,6 +266,7 @@ function makeFilter(styleRule) {
 }
 
 function makePolygonStyleLayer({ tgStyleLayerName, style, styleIndex, tgDrawGroups, draw, xyzLayerName, xyz, xyzLayerIndex }) {
+    // Polygon fill
     const tgFillDrawGroupName = `${tgStyleLayerName}_${style.type}_${styleIndex}_fill`;
     tgDrawGroups.push({ layerName: tgStyleLayerName, drawGroupName: tgFillDrawGroupName });
     draw[tgFillDrawGroupName] = {
@@ -285,7 +286,9 @@ function makePolygonStyleLayer({ tgStyleLayerName, style, styleIndex, tgDrawGrou
         style: `${xyzLayerName}_lines`,
         color: style.stroke,
         width: `${style.strokeWidth}px`,
-        // TODO: cap, join, dash
+        cap: style.strokeLinecap,
+        join: style.strokeLinejoin,
+        dash: hasDash(style.strokeDasharray) ? style.strokeDasharray : null,
         order: style.zIndex + (xyz.layers.length - xyzLayerIndex) * tgLayerOrderMultiplier + tgLayerOrderBase,
     };
 }
@@ -299,8 +302,9 @@ function makeLineStyleLayer({ tgStyleLayerName, style, styleIndex, tgDrawGroups,
         style: `${xyzLayerName}_lines`,
         color: style.stroke,
         width: `${style.strokeWidth}px`,
-        // TODO: cap, join, dash
-        // order: style.zIndex + (xyzLayerIndex + 1) * tgLayerOrderMultiplier,
+        cap: style.strokeLinecap,
+        join: style.strokeLinejoin,
+        dash: hasDash(style.strokeDasharray) ? style.strokeDasharray : null,
         order: style.zIndex + (xyz.layers.length - xyzLayerIndex) * tgLayerOrderMultiplier + tgLayerOrderBase,
     };
 }
@@ -361,6 +365,14 @@ function makeTextStyleLayer({ tgStyleLayerName, style, styleIndex, tgDrawGroups,
         // repeat_distance: '1000px',
         order: style.zIndex + (xyz.layers.length - xyzLayerIndex) * tgLayerOrderMultiplier + tgLayerOrderBase,
     };
+}
+
+// Filters out placeholder dasharray values that actually indicate solid line
+function hasDash(strokeDasharray) {
+    if (strokeDasharray && strokeDasharray[0] == 0 && strokeDasharray[1] == 0) {
+        return false;
+    }
+    return true;
 }
 
 // If a style group has two circle styles, mark them as combined
