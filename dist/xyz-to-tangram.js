@@ -513,6 +513,7 @@
 	        color: style.fill,
 	        size: ((style.radius * 2) + "px"),
 	        // size: [`${style.width}px`, `${style.height}px`],
+	        offset: getOffset(style),
 	        order: style.zIndex + (xyz.layers.length - xyzLayerIndex) * tgLayerOrderMultiplier + tgLayerOrderBase,
 	    };
 	    if (style.outline) {
@@ -542,6 +543,7 @@
 	        style: (xyzLayerName + "_points"),
 	        size: [((style.width) + "px"), ((style.height) + "px")],
 	        texture: style.src,
+	        offset: getOffset(style),
 	        order: style.zIndex + (xyz.layers.length - xyzLayerIndex) * tgLayerOrderMultiplier + tgLayerOrderBase,
 	    };
 	}
@@ -572,6 +574,7 @@
 	                width: ((style.strokeWidth) + "px")
 	            }
 	        },
+	        offset: getOffset(style),
 	        // repeat_distance: '1000px',
 	        order: style.zIndex + (xyz.layers.length - xyzLayerIndex) * tgLayerOrderMultiplier + tgLayerOrderBase,
 	    };
@@ -593,12 +596,17 @@
 	    }
 	}
 
-	// Filters out placeholder dasharray values that actually indicate solid line
+	// Filters out XYZ style placeholder dasharray values that actually indicate solid line
 	function hasDash(strokeDasharray) {
 	    if (strokeDasharray && strokeDasharray[0] == 0 && strokeDasharray[1] == 0) {
 	        return false;
 	    }
 	    return true;
+	}
+
+	// Get the offset value from an XYZ style as an array
+	function getOffset(style) {
+	    return [style.offsetX || 0, style.offsetY || 0];
 	}
 
 	// If a style group has two circle styles, mark them as combined
