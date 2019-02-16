@@ -1,3 +1,5 @@
+import parseCSSFont from 'css-font-parser';
+
 export default function xyzToTangram(xyzStyle, {
         setStartPosition = true, // create a Tangram camera to set the scene position on load
     } = {}) {
@@ -347,6 +349,7 @@ function makeImageStyleLayer({ tgStyleLayerName, style, styleIndex, tgDrawGroups
 function makeTextStyleLayer({ tgStyleLayerName, style, styleIndex, tgDrawGroups, draw, xyzLayerName, xyz, xyzLayerIndex }) {
     const tgTextDrawGroupName = `${tgStyleLayerName}_${style.type}_${styleIndex}_text`;
     tgDrawGroups.push({ layerName: tgStyleLayerName, drawGroupName: tgTextDrawGroupName });
+
     draw[tgTextDrawGroupName] = {
         visible: true,
         interactive: true,
@@ -355,8 +358,6 @@ function makeTextStyleLayer({ tgStyleLayerName, style, styleIndex, tgDrawGroups,
         text_source: `function() { var properties = feature; return ${style.textRef}; }`,
         font: {
             fill: style.fill,
-            family: 'Helvetica',
-            // TODO family, style, size, offset
             stroke: {
                 color: style.stroke,
                 width: `${style.strokeWidth}px`
@@ -365,6 +366,22 @@ function makeTextStyleLayer({ tgStyleLayerName, style, styleIndex, tgDrawGroups,
         // repeat_distance: '1000px',
         order: style.zIndex + (xyz.layers.length - xyzLayerIndex) * tgLayerOrderMultiplier + tgLayerOrderBase,
     };
+
+    // parse XYZ font field
+    const font = parseCSSFont(style.font);
+    if (font['font-family'].length > 0) {
+        draw[tgTextDrawGroupName].font.family = font['font-family'][0]; // use first family in list
+    }
+
+    draw[tgTextDrawGroupName].font.size = font['font-size'] || '12px';
+
+    if (font['font-style']) {
+        draw[tgTextDrawGroupName].font.style = font['font-style'];
+    }
+
+    if (font['font-weight']) {
+        draw[tgTextDrawGroupName].font.weight = font['font-weight'];
+    }
 }
 
 // Filters out placeholder dasharray values that actually indicate solid line
