@@ -3,15 +3,17 @@ import parseCSSFont from 'css-font-parser';
 export default function xyzToTangram(xyzStyle, {
         setStartPosition = true, // create a Tangram camera to set the scene position on load
     } = {}) {
-    const scene = {
-        sources: makeSources(xyzStyle),
-        styles: makeStyles(xyzStyle),
-        layers: makeLayers(xyzStyle)
-    };
 
+    const scene = {};
+
+    // Add Tangram scene elements so that insertion order matches Tangram idioms
+    // (camera first, then sources, styles before layers, etc.)
     if (setStartPosition) {
         scene.cameras = makeCamera(xyzStyle);
     }
+    scene.sources = makeSources(xyzStyle);
+    scene.styles = makeStyles(xyzStyle);
+    scene.layers = makeLayers(xyzStyle);
 
     return scene;
 }
