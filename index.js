@@ -407,12 +407,3 @@ function quoteValue(value) {
     // quote non-numeric values
     return (isNaN(Number(value)) ? `'${value}'` : Number(value));
 }
-
-function leftPad(value, digits) {
-    var sign = Math.sign(value) === -1 ? '-' : '';
-    return sign + new Array(digits).concat([Math.abs(value)]).join('0').slice(-digits);
-}
-
-function numDigits(value) {
-    return (value + '').replace('.', '').length;
-}
