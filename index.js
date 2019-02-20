@@ -4,15 +4,14 @@ export default function xyzToTangram(xyzStyle, {
         setStartPosition = true, // create a Tangram camera to set the scene position on load
     } = {}) {
 
-    const scene = {};
-
     // Add Tangram scene elements so that insertion order matches Tangram idioms
     // (camera first, then sources, styles before layers, etc.)
+    const scene = {};
     if (setStartPosition) {
         scene.cameras = makeCamera(xyzStyle);
     }
     scene.sources = makeSources(xyzStyle);
-    scene.styles = makeStyles(xyzStyle);
+    scene.styles = makeStyles();
     scene.layers = makeLayers(xyzStyle);
 
     return scene;
@@ -56,24 +55,16 @@ function makeSources(xyz) {
     }, {});
 }
 
-function makeStyles(xyz) {
-    return xyz.layers.reduce((tgStyles, xyzLayer, index) => {
-        // One style per layer per geometry type
-        const xyzLayerName = getXYZLayerName(xyzLayer, index);
-        ['polygons', 'lines', 'points', 'text'].forEach((geomType, geomIndex) => {
-            tgStyles[`${xyzLayerName}_${geomType}`] = {
-                base: geomType,
-                blend: (geomType === 'polygons' || geomType === 'lines') ? 'translucent' : 'overlay',
-                // blend: 'overlay',
-                blend_order: (xyz.layers.length - index + geomIndex/4) // TODO: revisit fractional blend order?
-            };
-        });
+function makeStyles() {
+    // One style per geometry type, with overlay blending
+    return ['polygons', 'lines', 'points', 'text'].reduce((tgStyles, geomType) => {
+        tgStyles[`XYZ_${geomType}`] = {
+            base: geomType,
+            blend: 'overlay'
+        };
         return tgStyles;
     }, {});
 }
-
-const tgLayerOrderBase = 1000; // Tangram layer order starting position for XYZ layers
-const tgLayerOrderMultiplier = 100; // Tangram layer order "space" inserted between XYZ layers
 
 function makeLayers(xyz) {
     // TODO: more general handling of visible flag
@@ -137,19 +128,6 @@ function makeGeometryTypeLayer({
             xyz, xyzLayerName, xyzLayerIndex
         });
     });
-
-    // Second pass to turn off visibility for Tangram draw groups from other XYZ style groups
-    styleGroups.forEach(([styleGroupName]) => {
-        tgDrawGroups.forEach(({ layerName, drawGroupName }) => {
-            const tgStyleLayerName = tgStyleLayers[styleGroupName];
-            const tgStyleLayer = tgGeomLayer[tgStyleLayerName];
-            if (layerName !== tgStyleLayerName) {
-                tgStyleLayer.draw[drawGroupName] = {
-                    visible: false
-                };
-            }
-        });
-    });
 }
 
 function makeStyleGroupLayer({
@@ -165,11 +143,16 @@ function makeStyleGroupLayer({
     xyzLayerIndex }) {
 
     // Match XYZ style rules for this style group, and create Tangram filter
-    let { sortPrefix, tgFilter } = matchStyleRules({ styleRules, styleGroupName, styleGroupPrefix });
+    const { tgFilter, priority } = matchStyleRules({ styleRules, styleGroupName, styleGroupPrefix });
 
     // Create Tangram sub-layer for this XYZ style group
-    const tgStyleLayerName = tgStyleLayers[styleGroupName] = `${sortPrefix}_${styleGroupName}`;
-    const tgStyleLayer = tgGeomLayer[tgStyleLayerName] = {};
+    // These layers are mutually exclusive, and matching priority is determined by the order of styleRules
+    // Style groups that don't match a rule (e.g. default / not-conditional style groups) are matched last
+    const tgStyleLayerName = tgStyleLayers[styleGroupName] = styleGroupName;
+    const tgStyleLayer = tgGeomLayer[tgStyleLayerName] = {
+        priority,
+        exclusive: true
+    };
     if (tgFilter != null) {
         tgStyleLayer.filter = tgFilter;
     }
@@ -182,7 +165,6 @@ function makeStyleGroupLayer({
     tgStyleLayer.draw = styleGroup
         .filter(s => s.opacity > 0) // this seems to be used as a general filter to disable symbolizers?
         .filter(s => !s.isOutline) // filter coalesced circle outlines
-        // .filter(s => s.type === 'Polygon' || s.type === 'Line') // TODO: other symbolizer types
         .reduce((draw, style, styleIndex) => {
             // Add Tangram draw groups for each XYZ style object
             if (style.type === 'Polygon') {
@@ -211,23 +193,13 @@ function makeStyleGroupLayer({
 
 function matchStyleRules({ styleRules, styleGroupName, styleGroupPrefix }) {
     const rule = styleRules.find(rule => styleGroupName === `${styleGroupPrefix}_${rule.id}`);
-    let ruleIndex;
+    let priority = styleRules.length;
     let tgFilter;
     if (rule) {
-        ruleIndex = styleRules.findIndex(rule => styleGroupName === `${styleGroupPrefix}_${rule.id}`);
+        priority = styleRules.findIndex(rule => styleGroupName === `${styleGroupPrefix}_${rule.id}`);
         tgFilter = makeFilter(rule);
     }
-
-    let sortPrefix;
-    if (ruleIndex != null) {
-        const sort = styleRules.length - ruleIndex;
-        sortPrefix = `s${leftPad(sort, numDigits(styleRules.length))}`;
-    }
-    else {
-        sortPrefix = `s${leftPad(0, numDigits(styleRules.length))}`;
-    }
-
-    return { sortPrefix, tgFilter };
+    return { tgFilter, priority };
 }
 
 // Build a Tangram layer filter for an XYZ style rule
@@ -271,61 +243,61 @@ function makeFilter(styleRule) {
 
 function makePolygonStyleLayer({ tgStyleLayerName, style, styleIndex, tgDrawGroups, draw, xyzLayerName, xyz, xyzLayerIndex }) {
     // Polygon fill
-    const tgFillDrawGroupName = `${tgStyleLayerName}_${style.type}_${styleIndex}_fill`;
+    const tgFillDrawGroupName = `${style.type}_${styleIndex}_fill`;
     tgDrawGroups.push({ layerName: tgStyleLayerName, drawGroupName: tgFillDrawGroupName });
     draw[tgFillDrawGroupName] = {
         visible: true,
         interactive: true,
-        style: `${xyzLayerName}_polygons`,
+        style: 'XYZ_polygons',
         color: style.fill,
-        order: style.zIndex + (xyz.layers.length - xyzLayerIndex) * tgLayerOrderMultiplier + tgLayerOrderBase,
+        blend_order: getBlendOrder(style, xyz.layers, xyzLayerIndex)
     };
 
     // Polygon stroke
-    const tgStrokeDrawGroupName = `${tgStyleLayerName}_${style.type}_${styleIndex}_stroke`;
+    const tgStrokeDrawGroupName = `${style.type}_${styleIndex}_stroke`;
     tgDrawGroups.push({ layerName: tgStyleLayerName, drawGroupName: tgStrokeDrawGroupName });
     draw[tgStrokeDrawGroupName] = {
         visible: true,
         interactive: true,
-        style: `${xyzLayerName}_lines`,
+        style: 'XYZ_lines',
         color: style.stroke,
         width: `${style.strokeWidth}px`,
         cap: style.strokeLinecap,
         join: style.strokeLinejoin,
         dash: hasDash(style.strokeDasharray) ? style.strokeDasharray : null,
-        order: style.zIndex + (xyz.layers.length - xyzLayerIndex) * tgLayerOrderMultiplier + tgLayerOrderBase,
+        blend_order: getBlendOrder(style, xyz.layers, xyzLayerIndex)
     };
 }
 
 function makeLineStyleLayer({ tgStyleLayerName, style, styleIndex, tgDrawGroups, draw, xyzLayerName, xyz, xyzLayerIndex }) {
-    const tgStrokeDrawGroupName = `${tgStyleLayerName}_${style.type}_${styleIndex}_stroke`;
+    const tgStrokeDrawGroupName = `${style.type}_${styleIndex}_stroke`;
     tgDrawGroups.push({ layerName: tgStyleLayerName, drawGroupName: tgStrokeDrawGroupName });
     draw[tgStrokeDrawGroupName] = {
         visible: true,
         interactive: true,
-        style: `${xyzLayerName}_lines`,
+        style: 'XYZ_lines',
         color: style.stroke,
         width: `${style.strokeWidth}px`,
         cap: style.strokeLinecap,
         join: style.strokeLinejoin,
         dash: hasDash(style.strokeDasharray) ? style.strokeDasharray : null,
-        order: style.zIndex + (xyz.layers.length - xyzLayerIndex) * tgLayerOrderMultiplier + tgLayerOrderBase,
+        blend_order: getBlendOrder(style, xyz.layers, xyzLayerIndex)
     };
 }
 
 function makeCircleStyleLayer({ tgStyleLayerName, style, styleIndex, tgDrawGroups, draw, xyzLayerName, xyz, xyzLayerIndex }) {
-    const tgPointDrawGroupName = `${tgStyleLayerName}_${style.type}_${styleIndex}_point`;
+    const tgPointDrawGroupName = `${style.type}_${styleIndex}_point`;
     tgDrawGroups.push({ layerName: tgStyleLayerName, drawGroupName: tgPointDrawGroupName });
     draw[tgPointDrawGroupName] = {
         visible: true,
         interactive: true,
         collide: false,
-        style: `${xyzLayerName}_points`,
+        style: 'XYZ_points',
         color: style.fill,
         size: `${style.radius * 2}px`,
         // size: [`${style.width}px`, `${style.height}px`],
         offset: getOffset(style),
-        order: style.zIndex + (xyz.layers.length - xyzLayerIndex) * tgLayerOrderMultiplier + tgLayerOrderBase,
+        blend_order: getBlendOrder(style, xyz.layers, xyzLayerIndex)
     };
     if (style.outline) {
         draw[tgPointDrawGroupName].outline = {
@@ -336,29 +308,29 @@ function makeCircleStyleLayer({ tgStyleLayerName, style, styleIndex, tgDrawGroup
 }
 
 function makeImageStyleLayer({ tgStyleLayerName, style, styleIndex, tgDrawGroups, draw, xyzLayerName, xyz, xyzLayerIndex }) {
-    const tgPointDrawGroupName = `${tgStyleLayerName}_${style.type}_${styleIndex}_point`;
+    const tgPointDrawGroupName = `${style.type}_${styleIndex}_point`;
     tgDrawGroups.push({ layerName: tgStyleLayerName, drawGroupName: tgPointDrawGroupName });
     draw[tgPointDrawGroupName] = {
         visible: true,
         interactive: true,
         collide: false,
-        style: `${xyzLayerName}_points`,
+        style: 'XYZ_points',
         size: [`${style.width}px`, `${style.height}px`],
         texture: style.src,
         offset: getOffset(style),
-        order: style.zIndex + (xyz.layers.length - xyzLayerIndex) * tgLayerOrderMultiplier + tgLayerOrderBase,
+        blend_order: getBlendOrder(style, xyz.layers, xyzLayerIndex)
     };
 }
 
 function makeTextStyleLayer({ tgStyleLayerName, style, styleIndex, tgDrawGroups, draw, xyzLayerName, xyz, xyzLayerIndex }) {
-    const tgTextDrawGroupName = `${tgStyleLayerName}_${style.type}_${styleIndex}_text`;
+    const tgTextDrawGroupName = `${style.type}_${styleIndex}_text`;
     tgDrawGroups.push({ layerName: tgStyleLayerName, drawGroupName: tgTextDrawGroupName });
 
     draw[tgTextDrawGroupName] = {
         visible: true,
         interactive: true,
         collide: false,
-        style: `${xyzLayerName}_text`,
+        style: 'XYZ_text',
         text_source: `function() { var properties = feature; return ${style.textRef}; }`,
         font: {
             fill: style.fill,
@@ -369,7 +341,7 @@ function makeTextStyleLayer({ tgStyleLayerName, style, styleIndex, tgDrawGroups,
         },
         offset: getOffset(style),
         // repeat_distance: '1000px',
-        order: style.zIndex + (xyz.layers.length - xyzLayerIndex) * tgLayerOrderMultiplier + tgLayerOrderBase,
+        blend_order: getBlendOrder(style, xyz.layers, xyzLayerIndex)
     };
 
     // parse XYZ font field
@@ -387,6 +359,14 @@ function makeTextStyleLayer({ tgStyleLayerName, style, styleIndex, tgDrawGroups,
     if (font['font-weight']) {
         draw[tgTextDrawGroupName].font.weight = font['font-weight'];
     }
+}
+
+// Calculate Tangram blend order based on XYZ layer position and style zIndex
+function getBlendOrder(style, xyzLayers, xyzLayerIndex) {
+    const tgBlendOrderBase = 1;
+    const tgBlendOrderMultiplier = 0.001;
+    const blendOrder = style.zIndex * tgBlendOrderMultiplier + (xyzLayers.length - xyzLayerIndex) + tgBlendOrderBase;
+    return Number(blendOrder.toFixed(3)); // cap digit precision
 }
 
 // Filters out XYZ style placeholder dasharray values that actually indicate solid line
