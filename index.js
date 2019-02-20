@@ -118,14 +118,12 @@ function makeGeometryTypeLayer({
     const styleGroups = Object.entries(xyzLayer.styleGroups).filter(([k]) => k.startsWith(styleGroupPrefix));
     const styleRules = (xyzLayer.styleRules && xyzLayer.styleRules[geomType]) || [];
 
-    const tgDrawGroups = []; // list of Tangram draw groups generated for this geometry layer
-    const tgStyleLayers = {}; // Tangram sub-layer keyed by XYZ style group
-
     styleGroups.forEach(([styleGroupName, styleGroup]) => {
         // Find XYZ style rule for this style (if one exists), and create Tangram layer filter
         makeStyleGroupLayer({
-            styleRules, styleGroupName, styleGroupPrefix, tgGeomLayer, tgStyleLayers, styleGroup, tgDrawGroups,
-            xyz, xyzLayerName, xyzLayerIndex
+            xyz, xyzLayerName, xyzLayerIndex,
+            styleRules, styleGroupName, styleGroup, styleGroupPrefix,
+            tgGeomLayer
         });
     });
 }
@@ -134,10 +132,8 @@ function makeStyleGroupLayer({
     styleRules,
     styleGroupName,
     styleGroupPrefix,
-    tgGeomLayer,
-    tgStyleLayers,
     styleGroup,
-    tgDrawGroups,
+    tgGeomLayer,
     xyzLayerName,
     xyz,
     xyzLayerIndex }) {
@@ -148,8 +144,7 @@ function makeStyleGroupLayer({
     // Create Tangram sub-layer for this XYZ style group
     // These layers are mutually exclusive, and matching priority is determined by the order of styleRules
     // Style groups that don't match a rule (e.g. default / not-conditional style groups) are matched last
-    const tgStyleLayerName = tgStyleLayers[styleGroupName] = styleGroupName;
-    const tgStyleLayer = tgGeomLayer[tgStyleLayerName] = {
+    const tgStyleLayer = tgGeomLayer[styleGroupName] = {
         priority,
         exclusive: true
     };
@@ -169,23 +164,23 @@ function makeStyleGroupLayer({
             // Add Tangram draw groups for each XYZ style object
             if (style.type === 'Polygon') {
                 // Polygon fill
-                makePolygonStyleLayer({ tgStyleLayerName, style, styleIndex, tgDrawGroups, draw, xyzLayerName, xyz, xyzLayerIndex });
+                makePolygonStyleLayer({ style, styleIndex, draw, xyzLayerName, xyz, xyzLayerIndex });
             }
             else if (style.type === 'Line') {
                 // Line stroke
-                makeLineStyleLayer({ tgStyleLayerName, style, styleIndex, tgDrawGroups, draw, xyzLayerName, xyz, xyzLayerIndex });
+                makeLineStyleLayer({ style, styleIndex, draw, xyzLayerName, xyz, xyzLayerIndex });
             }
             else if (style.type === 'Circle') {
                 // Circle point
-                makeCircleStyleLayer({ tgStyleLayerName, style, styleIndex, tgDrawGroups, draw, xyzLayerName, xyz, xyzLayerIndex });
+                makeCircleStyleLayer({ style, styleIndex, draw, xyzLayerName, xyz, xyzLayerIndex });
             }
             else if (style.type === 'Image') {
                 // Circle point
-                makeImageStyleLayer({ tgStyleLayerName, style, styleIndex, tgDrawGroups, draw, xyzLayerName, xyz, xyzLayerIndex });
+                makeImageStyleLayer({ style, styleIndex, draw, xyzLayerName, xyz, xyzLayerIndex });
             }
             else if (style.type === 'Text') {
                 // Text label
-                makeTextStyleLayer({ tgStyleLayerName, style, styleIndex, tgDrawGroups, draw, xyzLayerName, xyz, xyzLayerIndex });
+                makeTextStyleLayer({ style, styleIndex, draw, xyzLayerName, xyz, xyzLayerIndex });
             }
             return draw;
         }, {});
@@ -241,10 +236,9 @@ function makeFilter(styleRule) {
     return filter;
 }
 
-function makePolygonStyleLayer({ tgStyleLayerName, style, styleIndex, tgDrawGroups, draw, xyzLayerName, xyz, xyzLayerIndex }) {
+function makePolygonStyleLayer({ style, styleIndex, draw, xyz, xyzLayerIndex }) {
     // Polygon fill
     const tgFillDrawGroupName = `${style.type}_${styleIndex}_fill`;
-    tgDrawGroups.push({ layerName: tgStyleLayerName, drawGroupName: tgFillDrawGroupName });
     draw[tgFillDrawGroupName] = {
         visible: true,
         interactive: true,
@@ -255,7 +249,6 @@ function makePolygonStyleLayer({ tgStyleLayerName, style, styleIndex, tgDrawGrou
 
     // Polygon stroke
     const tgStrokeDrawGroupName = `${style.type}_${styleIndex}_stroke`;
-    tgDrawGroups.push({ layerName: tgStyleLayerName, drawGroupName: tgStrokeDrawGroupName });
     draw[tgStrokeDrawGroupName] = {
         visible: true,
         interactive: true,
@@ -269,9 +262,8 @@ function makePolygonStyleLayer({ tgStyleLayerName, style, styleIndex, tgDrawGrou
     };
 }
 
-function makeLineStyleLayer({ tgStyleLayerName, style, styleIndex, tgDrawGroups, draw, xyzLayerName, xyz, xyzLayerIndex }) {
+function makeLineStyleLayer({ style, styleIndex, draw, xyz, xyzLayerIndex }) {
     const tgStrokeDrawGroupName = `${style.type}_${styleIndex}_stroke`;
-    tgDrawGroups.push({ layerName: tgStyleLayerName, drawGroupName: tgStrokeDrawGroupName });
     draw[tgStrokeDrawGroupName] = {
         visible: true,
         interactive: true,
@@ -285,9 +277,8 @@ function makeLineStyleLayer({ tgStyleLayerName, style, styleIndex, tgDrawGroups,
     };
 }
 
-function makeCircleStyleLayer({ tgStyleLayerName, style, styleIndex, tgDrawGroups, draw, xyzLayerName, xyz, xyzLayerIndex }) {
+function makeCircleStyleLayer({ style, styleIndex, draw, xyz, xyzLayerIndex }) {
     const tgPointDrawGroupName = `${style.type}_${styleIndex}_point`;
-    tgDrawGroups.push({ layerName: tgStyleLayerName, drawGroupName: tgPointDrawGroupName });
     draw[tgPointDrawGroupName] = {
         visible: true,
         interactive: true,
@@ -307,9 +298,8 @@ function makeCircleStyleLayer({ tgStyleLayerName, style, styleIndex, tgDrawGroup
     }
 }
 
-function makeImageStyleLayer({ tgStyleLayerName, style, styleIndex, tgDrawGroups, draw, xyzLayerName, xyz, xyzLayerIndex }) {
+function makeImageStyleLayer({ style, styleIndex, draw, xyz, xyzLayerIndex }) {
     const tgPointDrawGroupName = `${style.type}_${styleIndex}_point`;
-    tgDrawGroups.push({ layerName: tgStyleLayerName, drawGroupName: tgPointDrawGroupName });
     draw[tgPointDrawGroupName] = {
         visible: true,
         interactive: true,
@@ -322,10 +312,8 @@ function makeImageStyleLayer({ tgStyleLayerName, style, styleIndex, tgDrawGroups
     };
 }
 
-function makeTextStyleLayer({ tgStyleLayerName, style, styleIndex, tgDrawGroups, draw, xyzLayerName, xyz, xyzLayerIndex }) {
+function makeTextStyleLayer({ style, styleIndex, draw, xyz, xyzLayerIndex }) {
     const tgTextDrawGroupName = `${style.type}_${styleIndex}_text`;
-    tgDrawGroups.push({ layerName: tgStyleLayerName, drawGroupName: tgTextDrawGroupName });
-
     draw[tgTextDrawGroupName] = {
         visible: true,
         interactive: true,

@@ -267,17 +267,15 @@
 	    });
 	    var styleRules = (xyzLayer.styleRules && xyzLayer.styleRules[geomType]) || [];
 
-	    var tgDrawGroups = []; // list of Tangram draw groups generated for this geometry layer
-	    var tgStyleLayers = {}; // Tangram sub-layer keyed by XYZ style group
-
 	    styleGroups.forEach(function (ref) {
 	        var styleGroupName = ref[0];
 	        var styleGroup = ref[1];
 
 	        // Find XYZ style rule for this style (if one exists), and create Tangram layer filter
 	        makeStyleGroupLayer({
-	            styleRules: styleRules, styleGroupName: styleGroupName, styleGroupPrefix: styleGroupPrefix, tgGeomLayer: tgGeomLayer, tgStyleLayers: tgStyleLayers, styleGroup: styleGroup, tgDrawGroups: tgDrawGroups,
-	            xyz: xyz, xyzLayerName: xyzLayerName, xyzLayerIndex: xyzLayerIndex
+	            xyz: xyz, xyzLayerName: xyzLayerName, xyzLayerIndex: xyzLayerIndex,
+	            styleRules: styleRules, styleGroupName: styleGroupName, styleGroup: styleGroup, styleGroupPrefix: styleGroupPrefix,
+	            tgGeomLayer: tgGeomLayer
 	        });
 	    });
 	}
@@ -286,10 +284,8 @@
 	    var styleRules = ref.styleRules;
 	    var styleGroupName = ref.styleGroupName;
 	    var styleGroupPrefix = ref.styleGroupPrefix;
-	    var tgGeomLayer = ref.tgGeomLayer;
-	    var tgStyleLayers = ref.tgStyleLayers;
 	    var styleGroup = ref.styleGroup;
-	    var tgDrawGroups = ref.tgDrawGroups;
+	    var tgGeomLayer = ref.tgGeomLayer;
 	    var xyzLayerName = ref.xyzLayerName;
 	    var xyz = ref.xyz;
 	    var xyzLayerIndex = ref.xyzLayerIndex;
@@ -303,8 +299,7 @@
 	    // Create Tangram sub-layer for this XYZ style group
 	    // These layers are mutually exclusive, and matching priority is determined by the order of styleRules
 	    // Style groups that don't match a rule (e.g. default / not-conditional style groups) are matched last
-	    var tgStyleLayerName = tgStyleLayers[styleGroupName] = styleGroupName;
-	    var tgStyleLayer = tgGeomLayer[tgStyleLayerName] = {
+	    var tgStyleLayer = tgGeomLayer[styleGroupName] = {
 	        priority: priority,
 	        exclusive: true
 	    };
@@ -324,23 +319,23 @@
 	            // Add Tangram draw groups for each XYZ style object
 	            if (style.type === 'Polygon') {
 	                // Polygon fill
-	                makePolygonStyleLayer({ tgStyleLayerName: tgStyleLayerName, style: style, styleIndex: styleIndex, tgDrawGroups: tgDrawGroups, draw: draw, xyzLayerName: xyzLayerName, xyz: xyz, xyzLayerIndex: xyzLayerIndex });
+	                makePolygonStyleLayer({ style: style, styleIndex: styleIndex, draw: draw, xyzLayerName: xyzLayerName, xyz: xyz, xyzLayerIndex: xyzLayerIndex });
 	            }
 	            else if (style.type === 'Line') {
 	                // Line stroke
-	                makeLineStyleLayer({ tgStyleLayerName: tgStyleLayerName, style: style, styleIndex: styleIndex, tgDrawGroups: tgDrawGroups, draw: draw, xyzLayerName: xyzLayerName, xyz: xyz, xyzLayerIndex: xyzLayerIndex });
+	                makeLineStyleLayer({ style: style, styleIndex: styleIndex, draw: draw, xyzLayerName: xyzLayerName, xyz: xyz, xyzLayerIndex: xyzLayerIndex });
 	            }
 	            else if (style.type === 'Circle') {
 	                // Circle point
-	                makeCircleStyleLayer({ tgStyleLayerName: tgStyleLayerName, style: style, styleIndex: styleIndex, tgDrawGroups: tgDrawGroups, draw: draw, xyzLayerName: xyzLayerName, xyz: xyz, xyzLayerIndex: xyzLayerIndex });
+	                makeCircleStyleLayer({ style: style, styleIndex: styleIndex, draw: draw, xyzLayerName: xyzLayerName, xyz: xyz, xyzLayerIndex: xyzLayerIndex });
 	            }
 	            else if (style.type === 'Image') {
 	                // Circle point
-	                makeImageStyleLayer({ tgStyleLayerName: tgStyleLayerName, style: style, styleIndex: styleIndex, tgDrawGroups: tgDrawGroups, draw: draw, xyzLayerName: xyzLayerName, xyz: xyz, xyzLayerIndex: xyzLayerIndex });
+	                makeImageStyleLayer({ style: style, styleIndex: styleIndex, draw: draw, xyzLayerName: xyzLayerName, xyz: xyz, xyzLayerIndex: xyzLayerIndex });
 	            }
 	            else if (style.type === 'Text') {
 	                // Text label
-	                makeTextStyleLayer({ tgStyleLayerName: tgStyleLayerName, style: style, styleIndex: styleIndex, tgDrawGroups: tgDrawGroups, draw: draw, xyzLayerName: xyzLayerName, xyz: xyz, xyzLayerIndex: xyzLayerIndex });
+	                makeTextStyleLayer({ style: style, styleIndex: styleIndex, draw: draw, xyzLayerName: xyzLayerName, xyz: xyz, xyzLayerIndex: xyzLayerIndex });
 	            }
 	            return draw;
 	        }, {});
@@ -401,18 +396,14 @@
 	}
 
 	function makePolygonStyleLayer(ref) {
-	    var tgStyleLayerName = ref.tgStyleLayerName;
 	    var style = ref.style;
 	    var styleIndex = ref.styleIndex;
-	    var tgDrawGroups = ref.tgDrawGroups;
 	    var draw = ref.draw;
-	    var xyzLayerName = ref.xyzLayerName;
 	    var xyz = ref.xyz;
 	    var xyzLayerIndex = ref.xyzLayerIndex;
 
 	    // Polygon fill
 	    var tgFillDrawGroupName = (style.type) + "_" + styleIndex + "_fill";
-	    tgDrawGroups.push({ layerName: tgStyleLayerName, drawGroupName: tgFillDrawGroupName });
 	    draw[tgFillDrawGroupName] = {
 	        visible: true,
 	        interactive: true,
@@ -423,7 +414,6 @@
 
 	    // Polygon stroke
 	    var tgStrokeDrawGroupName = (style.type) + "_" + styleIndex + "_stroke";
-	    tgDrawGroups.push({ layerName: tgStyleLayerName, drawGroupName: tgStrokeDrawGroupName });
 	    draw[tgStrokeDrawGroupName] = {
 	        visible: true,
 	        interactive: true,
@@ -438,17 +428,13 @@
 	}
 
 	function makeLineStyleLayer(ref) {
-	    var tgStyleLayerName = ref.tgStyleLayerName;
 	    var style = ref.style;
 	    var styleIndex = ref.styleIndex;
-	    var tgDrawGroups = ref.tgDrawGroups;
 	    var draw = ref.draw;
-	    var xyzLayerName = ref.xyzLayerName;
 	    var xyz = ref.xyz;
 	    var xyzLayerIndex = ref.xyzLayerIndex;
 
 	    var tgStrokeDrawGroupName = (style.type) + "_" + styleIndex + "_stroke";
-	    tgDrawGroups.push({ layerName: tgStyleLayerName, drawGroupName: tgStrokeDrawGroupName });
 	    draw[tgStrokeDrawGroupName] = {
 	        visible: true,
 	        interactive: true,
@@ -463,17 +449,13 @@
 	}
 
 	function makeCircleStyleLayer(ref) {
-	    var tgStyleLayerName = ref.tgStyleLayerName;
 	    var style = ref.style;
 	    var styleIndex = ref.styleIndex;
-	    var tgDrawGroups = ref.tgDrawGroups;
 	    var draw = ref.draw;
-	    var xyzLayerName = ref.xyzLayerName;
 	    var xyz = ref.xyz;
 	    var xyzLayerIndex = ref.xyzLayerIndex;
 
 	    var tgPointDrawGroupName = (style.type) + "_" + styleIndex + "_point";
-	    tgDrawGroups.push({ layerName: tgStyleLayerName, drawGroupName: tgPointDrawGroupName });
 	    draw[tgPointDrawGroupName] = {
 	        visible: true,
 	        interactive: true,
@@ -494,17 +476,13 @@
 	}
 
 	function makeImageStyleLayer(ref) {
-	    var tgStyleLayerName = ref.tgStyleLayerName;
 	    var style = ref.style;
 	    var styleIndex = ref.styleIndex;
-	    var tgDrawGroups = ref.tgDrawGroups;
 	    var draw = ref.draw;
-	    var xyzLayerName = ref.xyzLayerName;
 	    var xyz = ref.xyz;
 	    var xyzLayerIndex = ref.xyzLayerIndex;
 
 	    var tgPointDrawGroupName = (style.type) + "_" + styleIndex + "_point";
-	    tgDrawGroups.push({ layerName: tgStyleLayerName, drawGroupName: tgPointDrawGroupName });
 	    draw[tgPointDrawGroupName] = {
 	        visible: true,
 	        interactive: true,
@@ -518,18 +496,13 @@
 	}
 
 	function makeTextStyleLayer(ref) {
-	    var tgStyleLayerName = ref.tgStyleLayerName;
 	    var style = ref.style;
 	    var styleIndex = ref.styleIndex;
-	    var tgDrawGroups = ref.tgDrawGroups;
 	    var draw = ref.draw;
-	    var xyzLayerName = ref.xyzLayerName;
 	    var xyz = ref.xyz;
 	    var xyzLayerIndex = ref.xyzLayerIndex;
 
 	    var tgTextDrawGroupName = (style.type) + "_" + styleIndex + "_text";
-	    tgDrawGroups.push({ layerName: tgStyleLayerName, drawGroupName: tgTextDrawGroupName });
-
 	    draw[tgTextDrawGroupName] = {
 	        visible: true,
 	        interactive: true,
