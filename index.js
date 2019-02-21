@@ -257,9 +257,12 @@ function makePolygonStyleLayer({ style, styleIndex, draw, xyz, xyzLayerIndex }) 
         width: `${style.strokeWidth}px`,
         cap: style.strokeLinecap,
         join: style.strokeLinejoin,
-        dash: hasDash(style.strokeDasharray) ? style.strokeDasharray : null,
         blend_order: getBlendOrder(style, xyz.layers, xyzLayerIndex)
     };
+
+    if (hasDash(style.strokeDasharray)) {
+        draw[tgStrokeDrawGroupName].dash = style.strokeDasharray;
+    }
 }
 
 function makeLineStyleLayer({ style, styleIndex, draw, xyz, xyzLayerIndex }) {
@@ -272,9 +275,12 @@ function makeLineStyleLayer({ style, styleIndex, draw, xyz, xyzLayerIndex }) {
         width: `${style.strokeWidth}px`,
         cap: style.strokeLinecap,
         join: style.strokeLinejoin,
-        dash: hasDash(style.strokeDasharray) ? style.strokeDasharray : null,
         blend_order: getBlendOrder(style, xyz.layers, xyzLayerIndex)
     };
+
+    if (hasDash(style.strokeDasharray)) {
+        draw[tgStrokeDrawGroupName].dash = style.strokeDasharray;
+    }
 }
 
 function makeCircleStyleLayer({ style, styleIndex, draw, xyz, xyzLayerIndex }) {
