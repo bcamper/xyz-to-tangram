@@ -49,7 +49,8 @@ function makeSources(xyz) {
             url_params: {
                 access_token,
                 clip: true
-            }
+            },
+            max_zoom: 16 // best default?
         };
         return tgSources;
     }, {});
