@@ -329,6 +329,7 @@ function makeTextStyleLayer({ style, styleIndex, draw, xyz, xyzLayerIndex }) {
             }
         },
         offset: getOffset(style),
+        anchor: 'center',
         // repeat_distance: '1000px',
         blend_order: getBlendOrder(style, xyz.layers, xyzLayerIndex)
     };
