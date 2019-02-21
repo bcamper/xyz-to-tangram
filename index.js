@@ -155,12 +155,15 @@ function makeStyleGroupLayer({
 
     // Combine circle styles: XYZ has two circle styles (one for the outline, one for the fill),
     // while Tangram can represent this as a single draw group, as a point with an outline.
-    coalesceCircleStyles(styleGroup);
+    // coalesceCircleStyles(styleGroup);
+
+    // Combine icon and circle/rect shapes into a single SVG
+    compositeIcons(styleGroup);
 
     // Create Tangram draw groups, one for each XYZ style in this style group
     tgStyleLayer.draw = styleGroup
         .filter(s => s.opacity > 0) // this seems to be used as a general filter to disable symbolizers?
-        .filter(s => !s.isOutline) // filter coalesced circle outlines
+        .filter(s => !s.skip) // skip pre-processed styles (they've been coalesced into others)
         .reduce((draw, style, styleIndex) => {
             // Add Tangram draw groups for each XYZ style object
             if (style.type === 'Polygon') {
@@ -312,6 +315,17 @@ function makeImageStyleLayer({ style, styleIndex, draw, xyz, xyzLayerIndex }) {
         offset: getOffset(style),
         blend_order: getBlendOrder(style, xyz.layers, xyzLayerIndex)
     };
+
+    // optionally attached text label
+    if (style.text) {
+        const textDraws = {};
+        makeTextStyleLayer({ style: style.text, styleIndex: 0, draw: textDraws, xyz, xyzLayerIndex });
+        const text = Object.values(textDraws)[0];
+        if (text) {
+            draw[tgPointDrawGroupName].text = text;
+            text.optional = true;
+        }
+    }
 }
 
 function makeTextStyleLayer({ style, styleIndex, draw, xyz, xyzLayerIndex }) {
@@ -385,10 +399,88 @@ function coalesceCircleStyles(styleGroup) {
                     [first, second] = [second, first];
                 }
                 styleGroup[first].outline = styleGroup[second];
-                styleGroup[second].isOutline = true;
+                styleGroup[second].skip = true;
             }
         }
     }
+}
+
+// Combine icon and circle/rect shapes into a single SVG
+// This allows markers to properly overlap and collide
+function compositeIcons(styleGroup) {
+    const shapes = styleGroup
+        .filter(s => s.opacity > 0)
+        .filter(s => ['Circle', 'Rect', 'Image'].indexOf(s.type) > -1)
+        .sort((a, b) => a.zIndex - b.zIndex);
+
+    if (shapes.length === 0) {
+        return;
+    }
+
+    // find width/height incorporating offsets
+    const maxX = Math.max(...shapes.map(s => s.width + (s.offsetX || 0)).filter(x => x != null));
+    const minX = Math.min(...shapes.map(s => -s.width + (s.offsetX || 0)).filter(x => x != null));
+    const maxY = Math.max(...shapes.map(s => s.height + (s.offsetY || 0)).filter(x => x != null));
+    const minY = Math.min(...shapes.map(s => -s.height + (s.offsetY || 0)).filter(x => x != null));
+    const width = maxX - minX;
+    const height = maxY - minY;
+
+    let svg =
+        `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" version="1.1"
+            xmlns="http://www.w3.org/2000/svg"
+            xmlns:xlink="http://www.w3.org/1999/xlink">\n`;
+
+    shapes.forEach(s => {
+        // <circle cx="25" cy="25" r="20" style="fill: red; stroke: black; stroke-width: 3px;" />
+        // <rect x="5" y="5" width="30" height="30" style="fill: red; stroke: black; stroke-width: 3px;" />
+        // <image x="0" y="0" width="50" height="50" xlink:href="${url}" />
+
+        const offsetX = (s.offsetX || 0) + (width / 2);
+        const offsetY = (s.offsetY || 0) + (height / 2);
+
+        if (s.type === 'Circle') {
+            let style = `fill: ${s.fill}; `;
+            if (s.stroke && s.strokeWidth) {
+                style += `stroke: ${s.stroke}; stroke-width: ${s.strokeWidth}px;`;
+            }
+            svg += `<circle cx="${offsetX}" cy="${offsetY}" r="${s.radius}" style="${style}" />\n`;
+        }
+        if (s.type === 'Rect') {
+            let style = `fill: ${s.fill}; `;
+            if (s.stroke && s.strokeWidth) {
+                style += `stroke: ${s.stroke}; stroke-width: ${s.strokeWidth}px;`;
+            }
+            svg += `<rect x="${offsetX - s.width / 2}" y="${offsetY - s.height / 2}" width="${s.width}" height="${s.height}" style="${style}" />\n`;
+        }
+        else if (s.type === 'Image') {
+            svg += `<image x="${offsetX - s.width / 2}" y="${offsetY - s.height / 2}" width="${s.width}" height="${s.height}" xlink:href="${s.src}"/>\n`;
+        }
+
+        s.skip = true;
+    });
+
+    svg += '</svg>';
+    const url = `data:image/svg+xml;base64,${btoa(svg)}`; // encode SVG as data URL
+
+    // Create a new Image style for the composited SVG
+    const image = {
+        type: 'Image',
+        width,
+        height,
+        zIndex: shapes[shapes.length - 1].zIndex, // max zIndex is last
+        src: url,
+        opacity: 1
+    };
+
+    // Optionally attach a text label, if exactly one is found
+    const texts = styleGroup.filter(s => s.type === 'Text' && s.opacity > 0);
+    if (texts.length === 1) {
+        let text = texts[0];
+        image.text = text;
+        text.skip = true;
+    }
+
+    styleGroup.push(image); // add new composited SVG
 }
 
 // Utility functions

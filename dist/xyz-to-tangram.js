@@ -193,7 +193,8 @@
 	            url_params: {
 	                access_token: access_token,
 	                clip: true
-	            }
+	            },
+	            max_zoom: 16 // best default?
 	        };
 	        return tgSources;
 	    }, {});
@@ -309,12 +310,15 @@
 
 	    // Combine circle styles: XYZ has two circle styles (one for the outline, one for the fill),
 	    // while Tangram can represent this as a single draw group, as a point with an outline.
-	    coalesceCircleStyles(styleGroup);
+	    // coalesceCircleStyles(styleGroup);
+
+	    // Combine icon and circle/rect shapes into a single SVG
+	    compositeIcons(styleGroup);
 
 	    // Create Tangram draw groups, one for each XYZ style in this style group
 	    tgStyleLayer.draw = styleGroup
 	        .filter(function (s) { return s.opacity > 0; }) // this seems to be used as a general filter to disable symbolizers?
-	        .filter(function (s) { return !s.isOutline; }) // filter coalesced circle outlines
+	        .filter(function (s) { return !s.skip; }) // skip pre-processed styles (they've been coalesced into others)
 	        .reduce(function (draw, style, styleIndex) {
 	            // Add Tangram draw groups for each XYZ style object
 	            if (style.type === 'Polygon') {
@@ -494,6 +498,17 @@
 	        offset: getOffset(style),
 	        blend_order: getBlendOrder(style, xyz.layers, xyzLayerIndex)
 	    };
+
+	    // optionally attached text label
+	    if (style.text) {
+	        var textDraws = {};
+	        makeTextStyleLayer({ style: style.text, styleIndex: 0, draw: textDraws, xyz: xyz, xyzLayerIndex: xyzLayerIndex });
+	        var text = Object.values(textDraws)[0];
+	        if (text) {
+	            draw[tgPointDrawGroupName].text = text;
+	            text.optional = true;
+	        }
+	    }
 	}
 
 	function makeTextStyleLayer(ref) {
@@ -517,6 +532,7 @@
 	            }
 	        },
 	        offset: getOffset(style),
+	        anchor: 'center',
 	        // repeat_distance: '1000px',
 	        blend_order: getBlendOrder(style, xyz.layers, xyzLayerIndex)
 	    };
@@ -559,25 +575,80 @@
 	    return [style.offsetX || 0, style.offsetY || 0];
 	}
 
-	// If a style group has two circle styles, mark them as combined
-	// Tangram can represent htem as a single `points` draw group, with an outline
-	function coalesceCircleStyles(styleGroup) {
-	    var assign;
+	// Combine icon and circle/rect shapes into a single SVG
+	// This allows markers to properly overlap and collide
+	function compositeIcons(styleGroup) {
+	    var shapes = styleGroup
+	        .filter(function (s) { return s.opacity > 0; })
+	        .filter(function (s) { return ['Circle', 'Rect', 'Image'].indexOf(s.type) > -1; })
+	        .sort(function (a, b) { return a.zIndex - b.zIndex; });
 
-	    if (styleGroup.filter(function (s) { return s.type === 'Circle'; }).length === 2) {
-	        var first = styleGroup.findIndex(function (s) { return s.type === 'Circle'; });
-	        if (first > -1) {
-	            var second = styleGroup.slice(first + 1).findIndex(function (s) { return s.type === 'Circle'; });
-	            if (second > -1) {
-	                second += first + 1;
-	                if (styleGroup[first].radius > styleGroup[second].radius) {
-	                    (assign = [second, first], first = assign[0], second = assign[1]);
-	                }
-	                styleGroup[first].outline = styleGroup[second];
-	                styleGroup[second].isOutline = true;
-	            }
-	        }
+	    if (shapes.length === 0) {
+	        return;
 	    }
+
+	    // find width/height incorporating offsets
+	    var maxX = Math.max.apply(Math, shapes.map(function (s) { return s.width + (s.offsetX || 0); }).filter(function (x) { return x != null; }));
+	    var minX = Math.min.apply(Math, shapes.map(function (s) { return -s.width + (s.offsetX || 0); }).filter(function (x) { return x != null; }));
+	    var maxY = Math.max.apply(Math, shapes.map(function (s) { return s.height + (s.offsetY || 0); }).filter(function (x) { return x != null; }));
+	    var minY = Math.min.apply(Math, shapes.map(function (s) { return -s.height + (s.offsetY || 0); }).filter(function (x) { return x != null; }));
+	    var width = maxX - minX;
+	    var height = maxY - minY;
+
+	    var svg =
+	        "<svg width=\"" + width + "\" height=\"" + height + "\" viewBox=\"0 0 " + width + " " + height + "\" version=\"1.1\"\n            xmlns=\"http://www.w3.org/2000/svg\"\n            xmlns:xlink=\"http://www.w3.org/1999/xlink\">\n";
+
+	    shapes.forEach(function (s) {
+	        // <circle cx="25" cy="25" r="20" style="fill: red; stroke: black; stroke-width: 3px;" />
+	        // <rect x="5" y="5" width="30" height="30" style="fill: red; stroke: black; stroke-width: 3px;" />
+	        // <image x="0" y="0" width="50" height="50" xlink:href="${url}" />
+
+	        var offsetX = (s.offsetX || 0) + (width / 2);
+	        var offsetY = (s.offsetY || 0) + (height / 2);
+
+	        if (s.type === 'Circle') {
+	            var style = "fill: " + (s.fill) + "; ";
+	            if (s.stroke && s.strokeWidth) {
+	                style += "stroke: " + (s.stroke) + "; stroke-width: " + (s.strokeWidth) + "px;";
+	            }
+	            svg += "<circle cx=\"" + offsetX + "\" cy=\"" + offsetY + "\" r=\"" + (s.radius) + "\" style=\"" + style + "\" />\n";
+	        }
+	        if (s.type === 'Rect') {
+	            var style$1 = "fill: " + (s.fill) + "; ";
+	            if (s.stroke && s.strokeWidth) {
+	                style$1 += "stroke: " + (s.stroke) + "; stroke-width: " + (s.strokeWidth) + "px;";
+	            }
+	            svg += "<rect x=\"" + (offsetX - s.width / 2) + "\" y=\"" + (offsetY - s.height / 2) + "\" width=\"" + (s.width) + "\" height=\"" + (s.height) + "\" style=\"" + style$1 + "\" />\n";
+	        }
+	        else if (s.type === 'Image') {
+	            svg += "<image x=\"" + (offsetX - s.width / 2) + "\" y=\"" + (offsetY - s.height / 2) + "\" width=\"" + (s.width) + "\" height=\"" + (s.height) + "\" xlink:href=\"" + (s.src) + "\"/>\n";
+	        }
+
+	        s.skip = true;
+	    });
+
+	    svg += '</svg>';
+	    var url = "data:image/svg+xml;base64," + (btoa(svg)); // encode SVG as data URL
+
+	    // Create a new Image style for the composited SVG
+	    var image = {
+	        type: 'Image',
+	        width: width,
+	        height: height,
+	        zIndex: shapes[shapes.length - 1].zIndex, // max zIndex is last
+	        src: url,
+	        opacity: 1
+	    };
+
+	    // Optionally attach a text label, if exactly one is found
+	    var texts = styleGroup.filter(function (s) { return s.type === 'Text' && s.opacity > 0; });
+	    if (texts.length === 1) {
+	        var text = texts[0];
+	        image.text = text;
+	        text.skip = true;
+	    }
+
+	    styleGroup.push(image); // add new composited SVG
 	}
 
 	// Utility functions
