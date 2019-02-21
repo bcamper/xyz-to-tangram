@@ -240,7 +240,6 @@ function makePolygonStyleLayer({ style, styleIndex, draw, xyz, xyzLayerIndex }) 
     // Polygon fill
     const tgFillDrawGroupName = `${style.type}_${styleIndex}_fill`;
     draw[tgFillDrawGroupName] = {
-        visible: true,
         interactive: true,
         style: 'XYZ_polygons',
         color: style.fill,
@@ -250,7 +249,6 @@ function makePolygonStyleLayer({ style, styleIndex, draw, xyz, xyzLayerIndex }) 
     // Polygon stroke
     const tgStrokeDrawGroupName = `${style.type}_${styleIndex}_stroke`;
     draw[tgStrokeDrawGroupName] = {
-        visible: true,
         interactive: true,
         style: 'XYZ_lines',
         color: style.stroke,
@@ -268,7 +266,6 @@ function makePolygonStyleLayer({ style, styleIndex, draw, xyz, xyzLayerIndex }) 
 function makeLineStyleLayer({ style, styleIndex, draw, xyz, xyzLayerIndex }) {
     const tgStrokeDrawGroupName = `${style.type}_${styleIndex}_stroke`;
     draw[tgStrokeDrawGroupName] = {
-        visible: true,
         interactive: true,
         style: 'XYZ_lines',
         color: style.stroke,
@@ -286,7 +283,6 @@ function makeLineStyleLayer({ style, styleIndex, draw, xyz, xyzLayerIndex }) {
 function makeCircleStyleLayer({ style, styleIndex, draw, xyz, xyzLayerIndex }) {
     const tgPointDrawGroupName = `${style.type}_${styleIndex}_point`;
     draw[tgPointDrawGroupName] = {
-        visible: true,
         interactive: true,
         collide: false,
         style: 'XYZ_points',
@@ -307,7 +303,6 @@ function makeCircleStyleLayer({ style, styleIndex, draw, xyz, xyzLayerIndex }) {
 function makeImageStyleLayer({ style, styleIndex, draw, xyz, xyzLayerIndex }) {
     const tgPointDrawGroupName = `${style.type}_${styleIndex}_point`;
     draw[tgPointDrawGroupName] = {
-        visible: true,
         interactive: true,
         collide: false,
         style: 'XYZ_points',
@@ -321,7 +316,6 @@ function makeImageStyleLayer({ style, styleIndex, draw, xyz, xyzLayerIndex }) {
 function makeTextStyleLayer({ style, styleIndex, draw, xyz, xyzLayerIndex }) {
     const tgTextDrawGroupName = `${style.type}_${styleIndex}_text`;
     draw[tgTextDrawGroupName] = {
-        visible: true,
         interactive: true,
         collide: false,
         style: 'XYZ_text',

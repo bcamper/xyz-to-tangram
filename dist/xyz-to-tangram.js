@@ -405,7 +405,6 @@
 	    // Polygon fill
 	    var tgFillDrawGroupName = (style.type) + "_" + styleIndex + "_fill";
 	    draw[tgFillDrawGroupName] = {
-	        visible: true,
 	        interactive: true,
 	        style: 'XYZ_polygons',
 	        color: style.fill,
@@ -415,7 +414,6 @@
 	    // Polygon stroke
 	    var tgStrokeDrawGroupName = (style.type) + "_" + styleIndex + "_stroke";
 	    draw[tgStrokeDrawGroupName] = {
-	        visible: true,
 	        interactive: true,
 	        style: 'XYZ_lines',
 	        color: style.stroke,
@@ -439,7 +437,6 @@
 
 	    var tgStrokeDrawGroupName = (style.type) + "_" + styleIndex + "_stroke";
 	    draw[tgStrokeDrawGroupName] = {
-	        visible: true,
 	        interactive: true,
 	        style: 'XYZ_lines',
 	        color: style.stroke,
@@ -463,7 +460,6 @@
 
 	    var tgPointDrawGroupName = (style.type) + "_" + styleIndex + "_point";
 	    draw[tgPointDrawGroupName] = {
-	        visible: true,
 	        interactive: true,
 	        collide: false,
 	        style: 'XYZ_points',
@@ -490,7 +486,6 @@
 
 	    var tgPointDrawGroupName = (style.type) + "_" + styleIndex + "_point";
 	    draw[tgPointDrawGroupName] = {
-	        visible: true,
 	        interactive: true,
 	        collide: false,
 	        style: 'XYZ_points',
@@ -510,7 +505,6 @@
 
 	    var tgTextDrawGroupName = (style.type) + "_" + styleIndex + "_text";
 	    draw[tgTextDrawGroupName] = {
-	        visible: true,
 	        interactive: true,
 	        collide: false,
 	        style: 'XYZ_text',
