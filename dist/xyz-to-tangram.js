@@ -194,8 +194,14 @@
 	                access_token: access_token,
 	                clip: true
 	            },
-	            max_zoom: 16 // best default?
+	            max_zoom: 16, // best default?
 	        };
+
+	        // add layer bounding box if available (sometimes `bbox` property is an empty array)
+	        if (Array.isArray(xyzLayer.bbox) && xyzLayer.bbox.length === 4) {
+	            tgSources[name].bounds = xyzLayer.bbox;
+	        }
+
 	        return tgSources;
 	    }, {});
 	}
