@@ -74,6 +74,7 @@ function makeSources(xyz) {
                 clip: true
             },
             max_zoom: 16, // best default?
+            zooms: [0, 2, 4, 6, 8, 10, 12, 14, 16] // load every other zoom
         };
 
         // add layer bounding box if available (sometimes `bbox` property is an empty array)
