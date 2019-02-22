@@ -157,8 +157,30 @@
 	    scene.sources = makeSources(xyzStyle);
 	    scene.styles = makeStyles();
 	    scene.layers = makeLayers(xyzStyle);
+	    scene.meta = makeMeta(xyzStyle);
 
 	    return scene;
+	}
+
+	// add subject of XYZ Studio JSON as scene metadata
+	// useful for cards functionality, and general reference/debugging
+	function makeMeta(xyz) {
+	    var meta = {};
+	    meta.xyz = { // put under XYZ-specific namespace
+	        id: xyz.id,
+	        meta: xyz.meta,
+	        bookmarks: xyz.bookmarks,
+	        publish_settings: xyz.publish_settings,
+	        layers: xyz.layers.map(function (layer) {
+	            return {
+	                id: layer.id,
+	                meta: layer.meta,
+	                geospace: layer.geospace,
+	                cards: layer.cards.filter(function (c) { return c.length > 0; })
+	            };
+	        })
+	    };
+	    return meta;
 	}
 
 	function makeCamera(xyz) {
