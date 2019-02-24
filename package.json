@@ -14,6 +14,7 @@
   "license": "ISC",
   "dependencies": {
     "acorn": "^6.0.7",
+    "btoa": "^1.2.1",
     "css-font-parser": "^0.2.3",
     "eslint": "^5.13.0",
     "http-server": "^0.11.1",

@@ -10,6 +10,25 @@
 		return module = { exports: {} }, fn(module, module.exports), module.exports;
 	}
 
+	var btoa = createCommonjsModule(function (module) {
+	(function () {
+
+	  function btoa(str) {
+	    var buffer;
+
+	    if (str instanceof Buffer) {
+	      buffer = str;
+	    } else {
+	      buffer = Buffer.from(str.toString(), 'binary');
+	    }
+
+	    return buffer.toString('base64');
+	  }
+
+	  module.exports = btoa;
+	}());
+	});
+
 	var parser = createCommonjsModule(function (module) {
 	(function (root, factory) {
 	    if (module.exports) {
@@ -142,6 +161,9 @@
 	  return parse;
 	}));
 	});
+
+	// choose browser or node implementation of btoa
+	var btoa$1 = (typeof window !== 'undefined' && window.btoa) || btoa;
 
 	function xyzToTangram(xyzStyle, ref) {
 	    if ( ref === void 0 ) ref = {};
@@ -658,7 +680,7 @@
 	    });
 
 	    svg += '</svg>';
-	    var url = "data:image/svg+xml;base64," + (btoa(svg)); // encode SVG as data URL
+	    var url = "data:image/svg+xml;base64," + (btoa$1(svg)); // encode SVG as data URL
 
 	    // Create a new Image style for the composited SVG
 	    var image = {

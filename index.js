@@ -1,4 +1,8 @@
+import btoaNode from 'btoa';
 import parseCSSFont from 'css-font-parser';
+
+// choose browser or node implementation of btoa
+const btoa = (typeof window !== 'undefined' && window.btoa) || btoaNode;
 
 export default function xyzToTangram(xyzStyle, {
         setStartPosition = true, // create a Tangram camera to set the scene position on load
