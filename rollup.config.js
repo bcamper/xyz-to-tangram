@@ -15,7 +15,8 @@ export default {
         buble({
             transforms: {
                 dangerousForOf: true
-            }
+            },
+            objectAssign: 'Object.assign'
         })
     ]
 };

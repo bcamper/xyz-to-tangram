@@ -5,8 +5,9 @@ import parseCSSFont from 'css-font-parser';
 const btoa = (typeof window !== 'undefined' && window.btoa) || btoaNode;
 
 export default function xyzToTangram(xyzStyle, {
-        setStartPosition = true, // create a Tangram camera to set the scene position on load
-    } = {}) {
+    setStartPosition = true, // create a Tangram camera to set the scene position on load
+    collide = false // enable Tangram label collision
+} = {}) {
 
     // Add Tangram scene elements so that insertion order matches Tangram idioms
     // (camera first, then sources, styles before layers, etc.)
@@ -16,7 +17,7 @@ export default function xyzToTangram(xyzStyle, {
     }
     scene.sources = makeSources(xyzStyle);
     scene.styles = makeStyles();
-    scene.layers = makeLayers(xyzStyle);
+    scene.layers = makeLayers(xyzStyle, { collide });
     scene.meta = makeMeta(xyzStyle);
 
     return scene;
@@ -101,7 +102,7 @@ function makeStyles() {
     }, {});
 }
 
-function makeLayers(xyz) {
+function makeLayers(xyz, tgOptions) {
     // TODO: more general handling of visible flag
     return xyz.layers.filter(x => x.visible).reduce((tgLayers, xyzLayer, xyzLayerIndex) => {
         // Make one enclosing Tangram layer for the entire XYZ layer,
@@ -126,8 +127,8 @@ function makeLayers(xyz) {
         }
 
         geomTypes.forEach(geomType => {
-            makeGeometryTypeLayer({ xyz, xyzLayer, xyzLayerIndex, geomType, tgLayers });
-         });
+            makeGeometryTypeLayer({ xyz, xyzLayer, xyzLayerIndex, geomType, tgLayers, tgOptions });
+        });
 
         return tgLayers;
     }, {});
@@ -138,7 +139,8 @@ function makeGeometryTypeLayer({
     xyzLayer,
     xyzLayerIndex,
     geomType,
-    tgLayers }) {
+    tgLayers,
+    tgOptions }) {
 
     // Tangram sub-layer for all features with this geometry type
     const xyzLayerName = getXYZLayerName(xyzLayer, xyzLayerIndex);
@@ -158,7 +160,7 @@ function makeGeometryTypeLayer({
         makeStyleGroupLayer({
             xyz, xyzLayerName, xyzLayerIndex,
             styleRules, styleGroupName, styleGroup, styleGroupPrefix,
-            tgGeomLayer
+            tgGeomLayer, tgOptions
         });
     });
 }
@@ -169,6 +171,7 @@ function makeStyleGroupLayer({
     styleGroupPrefix,
     styleGroup,
     tgGeomLayer,
+    tgOptions,
     xyzLayerName,
     xyz,
     xyzLayerIndex }) {
@@ -202,23 +205,23 @@ function makeStyleGroupLayer({
             // Add Tangram draw groups for each XYZ style object
             if (style.type === 'Polygon') {
                 // Polygon fill
-                makePolygonStyleLayer({ style, styleIndex, draw, xyzLayerName, xyz, xyzLayerIndex });
+                makePolygonStyleLayer({ style, styleIndex, draw, xyzLayerName, xyz, xyzLayerIndex, tgOptions });
             }
             else if (style.type === 'Line') {
                 // Line stroke
-                makeLineStyleLayer({ style, styleIndex, draw, xyzLayerName, xyz, xyzLayerIndex });
+                makeLineStyleLayer({ style, styleIndex, draw, xyzLayerName, xyz, xyzLayerIndex, tgOptions });
             }
             else if (style.type === 'Circle') {
                 // Circle point
-                makeCircleStyleLayer({ style, styleIndex, draw, xyzLayerName, xyz, xyzLayerIndex });
+                makeCircleStyleLayer({ style, styleIndex, draw, xyzLayerName, xyz, xyzLayerIndex, tgOptions });
             }
             else if (style.type === 'Image') {
                 // Circle point
-                makeImageStyleLayer({ style, styleIndex, draw, xyzLayerName, xyz, xyzLayerIndex });
+                makeImageStyleLayer({ style, styleIndex, draw, xyzLayerName, xyz, xyzLayerIndex, tgOptions });
             }
             else if (style.type === 'Text') {
                 // Text label
-                makeTextStyleLayer({ style, styleIndex, draw, xyzLayerName, xyz, xyzLayerIndex });
+                makeTextStyleLayer({ style, styleIndex, draw, xyzLayerName, xyz, xyzLayerIndex, tgOptions });
             }
             return draw;
         }, {});
@@ -318,11 +321,12 @@ function makeLineStyleLayer({ style, styleIndex, draw, xyz, xyzLayerIndex }) {
     }
 }
 
-function makeCircleStyleLayer({ style, styleIndex, draw, xyz, xyzLayerIndex }) {
+function makeCircleStyleLayer({ style, styleIndex, draw, xyz, xyzLayerIndex, tgOptions }) {
     const tgPointDrawGroupName = `${style.type}_${styleIndex}_point`;
     draw[tgPointDrawGroupName] = {
         interactive: true,
-        collide: false,
+        collide: tgOptions.collide,
+        priority: getLabelPriority(xyz.layers, xyzLayerIndex, tgOptions),
         style: 'XYZ_points',
         color: style.fill,
         size: `${style.radius * 2}px`,
@@ -338,11 +342,12 @@ function makeCircleStyleLayer({ style, styleIndex, draw, xyz, xyzLayerIndex }) {
     }
 }
 
-function makeImageStyleLayer({ style, styleIndex, draw, xyz, xyzLayerIndex }) {
+function makeImageStyleLayer({ style, styleIndex, draw, xyz, xyzLayerIndex, tgOptions }) {
     const tgPointDrawGroupName = `${style.type}_${styleIndex}_point`;
     draw[tgPointDrawGroupName] = {
         interactive: true,
-        collide: false,
+        collide: tgOptions.collide,
+        priority: getLabelPriority(xyz.layers, xyzLayerIndex, tgOptions),
         style: 'XYZ_points',
         size: [`${style.width}px`, `${style.height}px`],
         texture: style.src,
@@ -353,7 +358,12 @@ function makeImageStyleLayer({ style, styleIndex, draw, xyz, xyzLayerIndex }) {
     // optionally attached text label
     if (style.text) {
         const textDraws = {};
-        makeTextStyleLayer({ style: style.text, styleIndex: 0, draw: textDraws, xyz, xyzLayerIndex });
+        makeTextStyleLayer({
+            style: style.text, styleIndex: 0,
+            draw: textDraws,
+            xyz, xyzLayerIndex,
+            tgOptions: { ...tgOptions, priority: 2 } // default attached text labels to lower priority than parent
+        });
         const text = Object.values(textDraws)[0];
         if (text) {
             draw[tgPointDrawGroupName].text = text;
@@ -362,11 +372,12 @@ function makeImageStyleLayer({ style, styleIndex, draw, xyz, xyzLayerIndex }) {
     }
 }
 
-function makeTextStyleLayer({ style, styleIndex, draw, xyz, xyzLayerIndex }) {
+function makeTextStyleLayer({ style, styleIndex, draw, xyz, xyzLayerIndex, tgOptions }) {
     const tgTextDrawGroupName = `${style.type}_${styleIndex}_text`;
     draw[tgTextDrawGroupName] = {
         interactive: true,
-        collide: false,
+        collide: tgOptions.collide,
+        priority: getLabelPriority(xyz.layers, xyzLayerIndex, tgOptions),
         style: 'XYZ_text',
         text_source: `function() { var properties = feature; return ${style.textRef}; }`,
         font: {
@@ -405,6 +416,14 @@ function getBlendOrder(style, xyzLayers, xyzLayerIndex) {
     const tgBlendOrderMultiplier = 0.001;
     const blendOrder = style.zIndex * tgBlendOrderMultiplier + (xyzLayers.length - xyzLayerIndex) + tgBlendOrderBase;
     return Number(blendOrder.toFixed(3)); // cap digit precision
+}
+
+// Calculate Tangram label priority based on XYZ layer position
+function getLabelPriority(xyzLayers, xyzLayerIndex, tgOptions) {
+    const tgPriorityBase = 0;
+    const tgPriorityMultiplier = 0.1;
+    return (xyzLayerIndex * tgPriorityMultiplier + tgPriorityBase) +
+        ((tgOptions.priority == null ? 1 : tgOptions.priority) * tgPriorityMultiplier * 0.5);
 }
 
 // Filters out XYZ style placeholder dasharray values that actually indicate solid line
