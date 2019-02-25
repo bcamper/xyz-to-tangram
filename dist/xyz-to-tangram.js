@@ -640,12 +640,10 @@
 	    }
 
 	    // find width/height incorporating offsets
-	    var maxX = Math.max.apply(Math, shapes.map(function (s) { return s.width + (s.offsetX || 0); }).filter(function (x) { return x != null; }));
-	    var minX = Math.min.apply(Math, shapes.map(function (s) { return -s.width + (s.offsetX || 0); }).filter(function (x) { return x != null; }));
-	    var maxY = Math.max.apply(Math, shapes.map(function (s) { return s.height + (s.offsetY || 0); }).filter(function (x) { return x != null; }));
-	    var minY = Math.min.apply(Math, shapes.map(function (s) { return -s.height + (s.offsetY || 0); }).filter(function (x) { return x != null; }));
-	    var width = maxX - minX;
-	    var height = maxY - minY;
+	    var maxOffsetWidth = Math.max.apply(Math, shapes.map(function (s) { return Math.abs(s.offsetX || 0); }).filter(function (x) { return x != null; }));
+	    var maxOffsetHeight = Math.max.apply(Math, shapes.map(function (s) { return Math.abs(s.offsetY || 0); }).filter(function (x) { return x != null; }));
+	    var width = Math.max.apply(Math, shapes.map(function (s) { return s.width; }).filter(function (x) { return x != null; })) + maxOffsetWidth;
+	    var height = Math.max.apply(Math, shapes.map(function (s) { return s.height; }).filter(function (x) { return x != null; })) + maxOffsetHeight;
 
 	    var svg =
 	        "<svg width=\"" + width + "\" height=\"" + height + "\" viewBox=\"0 0 " + width + " " + height + "\" version=\"1.1\"\n            xmlns=\"http://www.w3.org/2000/svg\"\n            xmlns:xlink=\"http://www.w3.org/1999/xlink\">\n";

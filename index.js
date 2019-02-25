@@ -452,12 +452,10 @@ function compositeIcons(styleGroup) {
     }
 
     // find width/height incorporating offsets
-    const maxX = Math.max(...shapes.map(s => s.width + (s.offsetX || 0)).filter(x => x != null));
-    const minX = Math.min(...shapes.map(s => -s.width + (s.offsetX || 0)).filter(x => x != null));
-    const maxY = Math.max(...shapes.map(s => s.height + (s.offsetY || 0)).filter(x => x != null));
-    const minY = Math.min(...shapes.map(s => -s.height + (s.offsetY || 0)).filter(x => x != null));
-    const width = maxX - minX;
-    const height = maxY - minY;
+    const maxOffsetWidth = Math.max(...shapes.map(s => Math.abs(s.offsetX || 0)).filter(x => x != null));
+    const maxOffsetHeight = Math.max(...shapes.map(s => Math.abs(s.offsetY || 0)).filter(x => x != null));
+    const width = Math.max(...shapes.map(s => s.width).filter(x => x != null)) + maxOffsetWidth;
+    const height = Math.max(...shapes.map(s => s.height).filter(x => x != null)) + maxOffsetHeight;
 
     let svg =
         `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" version="1.1"
