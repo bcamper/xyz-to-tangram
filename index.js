@@ -6,7 +6,7 @@ const btoa = (typeof window !== 'undefined' && window.btoa) || btoaNode;
 
 export default function xyzToTangram(xyzStyle, {
     setStartPosition = true, // create a Tangram camera to set the scene position on load
-    collide = false // enable Tangram label collision
+    collide = true // enable Tangram label collision
 } = {}) {
 
     // Add Tangram scene elements so that insertion order matches Tangram idioms
@@ -367,7 +367,7 @@ function makeImageStyleLayer({ style, styleIndex, draw, xyz, xyzLayerIndex, tgOp
         const text = Object.values(textDraws)[0];
         if (text) {
             draw[tgPointDrawGroupName].text = text;
-            text.optional = true;
+            text.optional = true; // attached text labels are preferred but optional
         }
     }
 }
@@ -376,7 +376,7 @@ function makeTextStyleLayer({ style, styleIndex, draw, xyz, xyzLayerIndex, tgOpt
     const tgTextDrawGroupName = `${style.type}_${styleIndex}_text`;
     draw[tgTextDrawGroupName] = {
         interactive: true,
-        collide: tgOptions.collide,
+        collide: true, // always collide text labels (no real downside)
         priority: getLabelPriority(xyz.layers, xyzLayerIndex, tgOptions),
         style: 'XYZ_text',
         text_source: `function() { var properties = feature; return ${style.textRef}; }`,

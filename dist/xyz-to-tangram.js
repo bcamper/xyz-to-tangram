@@ -168,7 +168,7 @@
 	function xyzToTangram(xyzStyle, ref) {
 	    if ( ref === void 0 ) ref = {};
 	    var setStartPosition = ref.setStartPosition; if ( setStartPosition === void 0 ) setStartPosition = true;
-	    var collide = ref.collide; if ( collide === void 0 ) collide = false;
+	    var collide = ref.collide; if ( collide === void 0 ) collide = true;
 
 
 	    // Add Tangram scene elements so that insertion order matches Tangram idioms
@@ -570,7 +570,7 @@
 	        var text = Object.values(textDraws)[0];
 	        if (text) {
 	            draw[tgPointDrawGroupName].text = text;
-	            text.optional = true;
+	            text.optional = true; // attached text labels are preferred but optional
 	        }
 	    }
 	}
@@ -586,7 +586,7 @@
 	    var tgTextDrawGroupName = (style.type) + "_" + styleIndex + "_text";
 	    draw[tgTextDrawGroupName] = {
 	        interactive: true,
-	        collide: tgOptions.collide,
+	        collide: true, // always collide text labels (no real downside)
 	        priority: getLabelPriority(xyz.layers, xyzLayerIndex, tgOptions),
 	        style: 'XYZ_text',
 	        text_source: ("function() { var properties = feature; return " + (style.textRef) + "; }"),
