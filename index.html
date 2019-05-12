@@ -6,177 +6,115 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>XYZ Studio to Tangram</title>
 
-    <style>
-
-    body {
-        margin: 0px;
-        border: 0px;
-        padding: 0px;
-    }
-
-    #map {
-        background: rgba(0, 0, 0, 0);
-        position: absolute;
-        width: 100%;
-        height: 100%;
-    }
-
-    .featureTable {
-        display: table;
-        background: white;
-        opacity: 0.85;
-    }
-
-    .featureRow {
-        display: table-row;
-        text-align: left;
-    }
-
-    .featureCell {
-        display: table-cell;
-        padding: 2px 4px;
-    }
-
-    .codeText {
-        font: Courier;
-        background: whitesmoke;
-        padding: 0px 4px;
-    }
-
-    </style>
-
     <!-- Leaflet -->
     <script defer src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
 
     <!-- Tangram library -->
-    <script type="module" src="https://master--tangram.netlify.com/dist/tangram.debug.mjs"></script>
-    <script nomodule src="https://master--tangram.netlify.com/dist/tangram.debug.js"></script>
+    <!-- <script type="module" src="https://master--tangram.netlify.com/dist/tangram.debug.mjs"></script> -->
+    <!-- <script nomodule src="https://master--tangram.netlify.com/dist/tangram.debug.js"></script> -->
+
+    <script type="module" src="https://unpkg.com/tangram/dist/tangram.debug.mjs"></script>
+    <script nomodule src="https://unpkg.com/tangram/dist/tangram.debug.js"></script>
+
+    <!-- <script type="module" src="http://localhost:8000/dist/tangram.debug.mjs"></script> -->
+    <!-- <script nomodule src="http://localhost:8000/dist/tangram.debug.js"></script> -->
 
     <!-- XYZ Studio to Tangram conversion library-->
-    <script src="dist/xyz-to-tangram.js"></script>
+    <script defer src="dist/xyz-to-tangram.js"></script>
 
     <!-- Demo app -->
-    <!-- use an inline module script, because they are deferred, and will wait for the Tangram .mjs module to load -->
-    <script type="module">
-
-    (async () => { // wrap in immediately invoked async function so we can use `await`
-        // Test XYZ project ids
-        // daf86376-b159-4b9e-bee3-04aa6aca6a10 // school polys
-        // 8ec36215-1d0c-4c63-8120-fad8770dd36c // lines/subways
-        // a2449f3f-e72a-4076-a927-7ac539a05b0e // points/flags
-        // bdc2d760-a580-11e8-897b-3f13b99e70ae // Amsterdam
-        // ac2b5bc0-a58b-11e8-897b-3f13b99e70ae // HERE offices
-        // da5107a0-a56a-11e8-897b-3f13b99e70ae // SF parks/parklets
-
-        // Get `project_id` query string parameter
-        let xyzProjectId;
-        const params = new URLSearchParams(document.location.search.slice(1));
-        if (params.get('project_id')) {
-            xyzProjectId = params.get('project_id');
-        }
-        else {
-            document.getElementById('no-viz').style.display = 'block';
-            return;
-        }
-
-        // Load XYZ studio viz JSON
-        const xyzURL = `https://xyz.api.here.com/project-api/projects/${xyzProjectId}`;
-        let xyzStyle = await fetch(xyzURL).then(r => {
-            if (!r.ok) {
-                // alert(`Couldn't load XYZ Studio project id ${xyzProjectId}!`);
-                document.getElementById('no-viz').style.display = 'block';
-                document.getElementById('no-viz').innerHTML =
-                    `Couldn't load XYZ Studio project id <span class="codeText">${xyzProjectId}</span>!`;
-                throw Error(`Couldn't load XYZ Studio project id ${xyzProjectId}!`);
-            }
-            return r.json();
-        });
-
-        // Convert to Tangram scene
-        let tgScene = xyzToTangram(xyzStyle);
-
-        window.console.log('tangram scene', tgScene);
-
-        // Create a Leaflet map
-        const map = L.map('map', {
-            maxZoom: 22,
-            zoomSnap: 0,
-            keyboard: false
-        });
-
-        // Default start position
-        map.setView([40.70531887544228, -74.00976419448853], 11);
-
-        let basemap = {
-            import: [
-                // 'https://www.nextzen.org/carto/refill-style/11/refill-style.zip',
-                // 'https://www.nextzen.org/carto/refill-style/11/themes/label-5.zip',
-                // 'https://www.nextzen.org/carto/refill-style/11/themes/no-texture.zip'
-                'https://sensescape.github.io/xyz-dots/scene.yaml'
-            ]
-        };
-
-        // Create Tangram as a Leaflet layer
-        const layer = Tangram.leafletLayer({
-            scene: {
-                ...basemap,
-                global: { sdk_api_key: 'NaqqS33fTUmyQcvbuIUCKA' },
-                ...tgScene
-            },
-            events: {
-                hover: onHover
-            },
-            // introspection: true,
-            // logLevel: 'debug'
-        });
-
-        layer.addTo(map);
-
-        // Feature selection
-        const tooltip = L.tooltip();
-        layer.bindTooltip(tooltip);
-        map.on('zoom', function () { layer.closeTooltip() }); // close tooltip when zooming
-
-        function onHover({ feature, changed, leaflet_event }) {
-            if (feature) {
-                if (changed) {
-                    tooltip.setContent(getFeaturePropsHTML(feature));
-                }
-                layer.openTooltip(leaflet_event.latlng);
-            }
-            else {
-                layer.closeTooltip();
-            }
-        }
-
-        // Get an HTML fragment with feature properties
-        function getFeaturePropsHTML(feature) {
-            let info = '<div class="featureTable">';
-            Object.keys(feature.properties).forEach(function (p) {
-                const prop = feature.properties[p];
-                if (prop) {
-                    const str = (prop != null && typeof prop === 'object') ? JSON.stringify(prop, null, 2) : prop;
-                    info += '<div class="featureRow"><div class="featureCell"><b>' + p + '</b></div>' +
-                        '<div class="featureCell">' + str + '</div></div>';
-                }
-            });
-            info += '<div class="featureRow"><div class="featureCell"><b>scene layers</b></div>' +
-                '<div class="featureCell">' + feature.layers.join('<br>') + '</div></div>';
-            info += '</div>';
-            return info;
-        }
-
-        // Debug
-        Object.assign(window, { xyzStyle, tgScene, layer, scene: layer.scene });
-    })();
+    <!-- <link rel="shortcut icon" href="https://www.here.com/sites/all/themes/herecorporate/build/favicon.ico" type="image/x-icon; charset=binary"> -->
+    <link href="https://fonts.googleapis.com/css?family=Fira+Sans:100,200,300400,500" rel="stylesheet">
+    <link rel="stylesheet" href="viewer.css">
+    <script defer src="viewer.js">
 
     </script>
 </head>
 <body>
     <div id="no-viz" style="display: none; padding: 20px; font: 32px Helvetica;">No XYZ Studio project id specified, please set
-        <span class="codeText">project_id</span> parameter on query string.</div>
+        'project_id' parameter on query string.</div>
     <div id="map"></div>
+
+    <!-- Floating card shown on feature hover/click -->
+    <div class="card">
+      <div class="card-title">
+      </div>
+      <div class="card-rows-container">
+      </div>
+      <div class="card-more-link">View more</div>
+    </div>
+
+    <!-- Sidebar column -->
+    <div class="sidebar">
+      <!-- Project info -->
+      <div class="project">
+        <div class="top-row">
+            <button class="project-collapse-button">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
+                    <path d="M15.41 16.09l-4.58-4.59 4.58-4.59L14 5.5l-6 6 6 6z"></path>
+                </svg>
+            </button>
+            <div class="attribution">
+                Created using
+                <a href="https://xyz.here.com">HERE XYZ Studio</a>
+            </div>
+        </div>
+        <div class="project-details">
+            <div class="name">
+                San Francisco Zip Codes
+            </div>
+            <div class="description">
+                This is an XYZ Studio tooltip that has been recreated from scratch. Feels like I am doing one of those CSS competitions.
+            </div>
+            <div class="layers-container">
+            </div>
+            <div class="card-toggle-container">
+                <span>SHOW INFORMATION ON HOVER</span>
+                <span class="card-toggle"></span>
+            </div>
+        </div>
+      </div>
+
+      <!-- Card sidebar shown for "more info" -->
+      <div class="card-sidebar">
+        <div class="card-title-container">
+            <div class="card-title">Test</div>
+            <button class="card-more-close-button">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+                    <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z">
+                    </path>
+                </svg>
+            </button>
+        </div>
+        <div class="card-rows-container">
+            <div class="card-row">
+                <div class="card-row-title">
+                    Name
+                </div>
+                <div class="card-row-description">
+                    Value
+                </div>
+            </div>
+            <div class="card-row">
+                <div class="card-row-title">
+                    Name
+                </div>
+                <div class="card-row-description">
+                    Value
+                </div>
+            </div>
+            <div class="card-row">
+                <div class="card-row-title">
+                    Name
+                </div>
+                <div class="card-row-description">
+                    Value
+                </div>
+            </div>
+        </div>
+      </div>
+   </div>
 
 </body>
 </html>
