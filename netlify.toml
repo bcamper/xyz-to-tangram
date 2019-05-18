@@ -1,7 +1,11 @@
-[Settings]
-
 # Settings in the [build] context are global and are applied to all contexts
 # unless otherwise overridden by more specific contexts.
 [build]
   # Directory with the serverless Lambda functions to deploy to AWS.
   functions = "./functions"
+
+# Provides a nicer path for the server-side convert function
+[[redirects]]
+  from = "/convert"
+  to = "/.netlify/functions/convert"
+  status = 200
