@@ -10,13 +10,20 @@
 
     // Get `project_id` query string parameter
     let xyzProjectId;
-    const params = new URLSearchParams(document.location.search.slice(1));
-    if (params.get('project_id')) {
-        xyzProjectId = params.get('project_id');
+    const params = new URLSearchParams(document.location.search);
+    const query = [...params.entries()]
+        .reduce((obj, { 0: k, 1: v }) => Object.assign(obj, { [k]: v }), {}); // convert entries to object
+
+    if (query.project_id) {
+        xyzProjectId = query.project_id;
     }
     else {
         document.getElementById('no-viz').style.display = 'block';
     }
+
+    // parse query params
+    const collide = !(query.collide != null && query.collide == 0);
+    const labelsOnTop = !(query.labelsOnTop != null && query.labelsOnTop != '' && query.labelsOnTop == 0);
 
     // Load XYZ studio viz JSON
     const xyzURL = `https://xyz.api.here.com/project-api/projects/${xyzProjectId}`;
@@ -32,7 +39,7 @@
     });
 
     // Convert to Tangram scene
-    const { scene: tgScene, legends } = xyzToTangram(xyzStyle);
+    const { scene: tgScene, legends } = xyzToTangram(xyzStyle, { collide });
 
     window.console.log('tangram scene', tgScene);
 
@@ -49,36 +56,20 @@
     // Default start position
     map.setView([40.70531887544228, -74.00976419448853], 11);
 
-    let basemap = {
-        import: [
-            // 'https://www.nextzen.org/carto/refill-style/11/refill-style.zip',
-            // 'https://www.nextzen.org/carto/refill-style/11/themes/label-5.zip',
-            // 'https://www.nextzen.org/carto/refill-style/11/themes/no-texture.zip',
-
-            // 'https://www.nextzen.org/carto/refill-style/refill-style.zip',
-            // 'https://www.nextzen.org/carto/refill-style/themes/color-gray-gold.zip',
-            // 'https://www.nextzen.org/carto/refill-style/themes/label-4.zip',
-            // 'https://www.nextzen.org/carto/refill-style/11/themes/no-texture.zip',
-
-            'https://www.nextzen.org/carto/walkabout-style/walkabout-style.zip',
-
-            // 'https://sensescape.github.io/xyz-dots/scene.yaml',
-        ]
-    };
+    const basemapGenerator = basemaps[query.basemap || defaultBasemap];
+    const basemapScene = (basemapGenerator && basemapGenerator({ labelsOnTop })) || {};
+    const basemapAPIKey = query.basemap_api_key || 'xC0YyOMJRHidUaLujO1b0g';
 
     // Create Tangram as a Leaflet layer
     const layer = Tangram.leafletLayer({
         scene: {
-            ...basemap,
-            global: { sdk_api_key: 'NaqqS33fTUmyQcvbuIUCKA' },
-            ...tgScene
+            ...basemapScene,                        // first add basemap
+            global: { sdk_api_key: basemapAPIKey }, // then set API key
+            ...tgScene                              // then layer in Studio scene
         },
         events: {
-            // hover: e => featureSelection(e, 'hover'),
-            click: e => featureSelection(e, 'click')
-        },
-        // introspection: true,
-        // logLevel: 'debug'
+            click: e => featureSelection(e, 'click') // default to just click events
+        }
     });
 
     layer.addTo(map);
@@ -271,3 +262,94 @@
     // Debug
     Object.assign(window, { xyzStyle, tgScene, layer, scene: layer.scene });
 })();
+
+// Basemap options
+const defaultBasemap = 'refill';
+const basemaps = {
+    // XYZ basemaps
+    'dots': () => {
+        return {
+            import: 'https://sensescape.github.io/xyz-dots/scene.yaml'
+        };
+    },
+    'pixel': () => {
+        return {
+            import: 'https://sensescape.github.io/xyz-pixel/scene.yaml'
+        };
+    },
+    'satellite': () => {
+        return {
+            import: [
+                'https://www.nextzen.org/carto/refill-style/refill-style.zip',
+                'satellite.yaml'
+            ]
+        };
+    },
+
+    // Mapzen basemaps
+    'refill': ({ labelsOnTop }) => {
+        const basemap = {
+            import: [
+                'https://www.nextzen.org/carto/refill-style/refill-style.zip',
+                'https://www.nextzen.org/carto/refill-style/themes/label-4.zip',
+                'https://www.nextzen.org/carto/refill-style/themes/terrain-shading-dark.zip',
+                'https://www.nextzen.org/carto/refill-style/themes/no-texture.zip'
+            ]
+        };
+        if (labelsOnTop) {
+            basemap.styles = {
+                // temp override to put basemap labels on top
+                'text-blend-order': {
+                    blend_order: 100
+                },
+                mapzen_icon_library: {
+                    blend_order: 100
+                }
+            };
+        }
+        return basemap;
+    },
+    'refill-dark': ({ labelsOnTop }) => {
+        const basemap = {
+            import: [
+                'https://www.nextzen.org/carto/refill-style/refill-style.zip',
+                'https://www.nextzen.org/carto/refill-style/themes/color-gray-gold.zip',
+                'https://www.nextzen.org/carto/refill-style/themes/label-4.zip',
+                // 'https://www.nextzen.org/carto/refill-style/themes/terrain-shading-dark.zip',
+            ]
+        };
+        if (labelsOnTop) {
+            basemap.styles = {
+                // temp override to put basemap labels on top
+                'text-blend-order': {
+                    blend_order: 100
+                },
+                mapzen_icon_library: {
+                    blend_order: 100
+                }
+            };
+        }
+        return basemap;
+    },
+    'walkabout': ({ labelsOnTop }) => {
+        const basemap = {
+            import: [
+                'https://www.nextzen.org/carto/walkabout-style/8/walkabout-style.zip',
+                'https://www.nextzen.org/carto/walkabout-style/8/themes/walkabout-road-shields-usa.zip',
+                'https://www.nextzen.org/carto/walkabout-style/8/themes/walkabout-road-shields-international.zip'
+            ]
+        };
+        if (labelsOnTop) {
+            basemap.styles = {
+                // temp override to put basemap labels on top
+                'text-blend-order': {
+                    blend_order: 100
+                },
+                mapzen_icon_library: {
+                    blend_order: 100
+                }
+            };
+        }
+        return basemap;
+    }
+};
