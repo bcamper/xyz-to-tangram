@@ -6,7 +6,9 @@
   "scripts": {
     "start": "run-p watch serve",
     "watch": "rollup -c --watch",
-    "build": "rollup -c",
+    "build": "run-s build-lib build-lambda",
+    "build-lib": "rollup -c",
+    "build-lambda": "netlify-lambda build server",
     "serve": "http-server -p 7000 --cors -c-1",
     "lint": "eslint *.js"
   },
@@ -14,10 +16,13 @@
   "license": "ISC",
   "dependencies": {
     "acorn": "^6.0.7",
+    "axios": "^0.18.0",
     "btoa": "^1.2.1",
     "css-font-parser": "^0.2.3",
     "eslint": "^5.13.0",
     "http-server": "^0.11.1",
+    "js-yaml": "^3.13.1",
+    "netlify-lambda": "^1.4.10",
     "npm-run-all": "^4.1.5",
     "rollup": "^1.1.2",
     "rollup-plugin-buble": "^0.19.6",
