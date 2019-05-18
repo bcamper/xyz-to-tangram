@@ -32,7 +32,7 @@
     });
 
     // Convert to Tangram scene
-    const tgScene = xyzToTangram(xyzStyle, { /*collide: true*/ });
+    const { scene: tgScene, legends } = xyzToTangram(xyzStyle);
 
     window.console.log('tangram scene', tgScene);
 
@@ -179,6 +179,39 @@
     }
     else {
         document.querySelector('.project-details > .description').style.display = 'none';
+    }
+
+    // Build legends
+    if (display && display.legend && legends.length > 0) {
+        document.querySelector('.legend-rows').innerHTML = legends.map(legend => {
+            let symbol = '';
+            if (legend.style) {
+                if (legend.style.type === 'Image') {
+                    symbol = `<img width="28" height="28" src="${legend.style.src}">`;
+                }
+                else if (legend.style.type === 'Line') {
+                    symbol = `
+                        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 28 28">
+                            <path fill="${legend.style.stroke}" d="M21 24.556l-3.444 1.556L7 3.444l3.444-1.556L21 24.556z"></path>
+                        </svg>`;
+                }
+                else if (legend.style.type === 'Polygon') {
+                    symbol = `
+                        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 28 28">
+                            <path fill="${legend.style.fill}" stroke="${legend.style.stroke}" stroke-width="2" d="M14,2.165l12.5,9.043l-4.787,14.627H6.288L1.5,11.207L14,2.165z"></path>
+                        </svg>`;
+                }
+            }
+
+            return `<div class="legend">
+                <!-- <div style="border-top: 3px solid ${layer.color};" class="line"></div> -->
+                <span>${symbol}</span>
+                <span style="padding-left: 8px;">${legend.name}</span>
+            </div>`;
+        }).join('');
+    }
+    else {
+        document.querySelector('.legend-container').style.display = 'none';
     }
 
     // if (display && !display.cards) {

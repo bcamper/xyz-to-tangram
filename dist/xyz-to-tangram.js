@@ -174,15 +174,17 @@
 	    // Add Tangram scene elements so that insertion order matches Tangram idioms
 	    // (camera first, then sources, styles before layers, etc.)
 	    var scene = {};
+	    var legends = [];
+
 	    if (setStartPosition) {
 	        scene.cameras = makeCamera(xyzStyle);
 	    }
 	    scene.sources = makeSources(xyzStyle);
 	    scene.styles = makeStyles();
-	    scene.layers = makeLayers(xyzStyle, { collide: collide });
+	    scene.layers = makeLayers(xyzStyle, legends, { collide: collide });
 	    scene.meta = makeMeta(xyzStyle);
 
-	    return scene;
+	    return { scene: scene, legends: legends };
 	}
 
 	// add subject of XYZ Studio JSON as scene metadata
@@ -264,7 +266,7 @@
 	    }, {});
 	}
 
-	function makeLayers(xyz, tgOptions) {
+	function makeLayers(xyz, legends, tgOptions) {
 	    // TODO: more general handling of visible flag
 	    return xyz.layers.filter(function (x) { return x.visible; }).reduce(function (tgLayers, xyzLayer, xyzLayerIndex) {
 	        // Make one enclosing Tangram layer for the entire XYZ layer,
@@ -289,7 +291,7 @@
 	        }
 
 	        geomTypes.forEach(function (geomType) {
-	            makeGeometryTypeLayer({ xyz: xyz, xyzLayer: xyzLayer, xyzLayerIndex: xyzLayerIndex, geomType: geomType, tgLayers: tgLayers, tgOptions: tgOptions });
+	            makeGeometryTypeLayer({ xyz: xyz, xyzLayer: xyzLayer, xyzLayerIndex: xyzLayerIndex, geomType: geomType, tgLayers: tgLayers, tgOptions: tgOptions, legends: legends });
 	        });
 
 	        return tgLayers;
@@ -303,6 +305,7 @@
 	    var geomType = ref.geomType;
 	    var tgLayers = ref.tgLayers;
 	    var tgOptions = ref.tgOptions;
+	    var legends = ref.legends;
 
 
 	    // Tangram sub-layer for all features with this geometry type
@@ -313,7 +316,7 @@
 	        }
 	    };
 
-	    // Make further Tagram sub-layers, one per XYZ layer style group
+	    // Make further Tangram sub-layers, one per XYZ layer style group
 	    var styleGroupPrefix = (geomType.toLowerCase()) + "Style";
 	    var styleGroups = Object.entries(xyzLayer.styleGroups).filter(function (ref) {
 	        var k = ref[0];
@@ -327,11 +330,27 @@
 	        var styleGroup = ref[1];
 
 	        // Find XYZ style rule for this style (if one exists), and create Tangram layer filter
-	        makeStyleGroupLayer({
+	        var ref$1 = makeStyleGroupLayer({
 	            xyz: xyz, xyzLayerName: xyzLayerName, xyzLayerIndex: xyzLayerIndex,
 	            styleRules: styleRules, styleGroupName: styleGroupName, styleGroup: styleGroup, styleGroupPrefix: styleGroupPrefix,
 	            tgGeomLayer: tgGeomLayer, tgOptions: tgOptions
 	        });
+	        var legendName = ref$1.legendName;
+
+	        // Add legend entry
+	        var legendStyle = styleGroup
+	            .filter(function (s) { return s.opacity > 0; }) // exclude invisible groups
+	            .filter(function (s) { return !s.skip; }) // exclude groups that were replaced by postprocessing
+	            .filter(function (s) { return s.type !== 'Line' || s.strokeWidth > 0; }) // zero-width lines are sometimes used for "hidden" groups
+	            .filter(function (s) { return s.type !== 'Text'; })[0]; // exclude text styles from legends
+
+	        if (legendStyle) {
+	            legends.push({
+	                geomType: geomType,
+	                name: legendName || ("Default " + (geomType.toLowerCase()) + " style"), // use default name if necessary
+	                style: legendStyle
+	            });
+	        }
 	    });
 	}
 
@@ -351,6 +370,7 @@
 	    var ref$1 = matchStyleRules({ styleRules: styleRules, styleGroupName: styleGroupName, styleGroupPrefix: styleGroupPrefix });
 	    var tgFilter = ref$1.tgFilter;
 	    var priority = ref$1.priority;
+	    var name = ref$1.name;
 
 	    // Create Tangram sub-layer for this XYZ style group
 	    // These layers are mutually exclusive, and matching priority is determined by the order of styleRules
@@ -398,6 +418,8 @@
 	            }
 	            return draw;
 	        }, {});
+
+	    return { legendName: name };
 	}
 
 	function matchStyleRules(ref) {
@@ -406,13 +428,15 @@
 	    var styleGroupPrefix = ref.styleGroupPrefix;
 
 	    var rule = styleRules.find(function (rule) { return styleGroupName === (styleGroupPrefix + "_" + (rule.id)); });
+	    var name;
 	    var priority = styleRules.length;
 	    var tgFilter;
 	    if (rule) {
+	        name = rule.name;
 	        priority = styleRules.findIndex(function (rule) { return styleGroupName === (styleGroupPrefix + "_" + (rule.id)); });
 	        tgFilter = makeFilter(rule);
 	    }
-	    return { tgFilter: tgFilter, priority: priority };
+	    return { name: name, tgFilter: tgFilter, priority: priority };
 	}
 
 	// Build a Tangram layer filter for an XYZ style rule
@@ -493,6 +517,10 @@
 	    var draw = ref.draw;
 	    var xyz = ref.xyz;
 	    var xyzLayerIndex = ref.xyzLayerIndex;
+
+	    if (style.strokeWidth === 0) {
+	        return; // zero-width lines are sometimes used for "hidden" groups
+	    }
 
 	    var tgStrokeDrawGroupName = (style.type) + "_" + styleIndex + "_stroke";
 	    draw[tgStrokeDrawGroupName] = {

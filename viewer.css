@@ -86,12 +86,25 @@ html {
    font-weight: 200;
 }
 
-.layers-container {
+/* .legend-container: {
+
+} */
+
+.legend-rows {
    padding: 12px;
    overflow-y: scroll;
+   min-height: 107px;
+   max-height: 163px;
 }
 
-.layer {
+/* .legend-rows::-webkit-scrollbar {
+   width: 2px;
+   background: rgba(255, 255, 255, 0.5);
+   border-radius: 20px;
+   height: 54px;
+} */
+
+.legend {
    background: rgba(15,22,33,.3);
    padding: 10px;
    font-size: 13px;
