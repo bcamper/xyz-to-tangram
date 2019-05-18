@@ -63,9 +63,16 @@
     // Create Tangram as a Leaflet layer
     const layer = Tangram.leafletLayer({
         scene: {
-            ...basemapScene,                        // first add basemap
-            global: { sdk_api_key: basemapAPIKey }, // then set API key
-            ...tgScene                              // then layer in Studio scene
+            import: [
+                // first add basemap
+                basemapScene,
+
+                // then set API key
+                { global: { sdk_api_key: basemapAPIKey } },
+
+                // then layer in Studio scene
+                tgScene
+            ]
         },
         events: {
             click: e => featureSelection(e, 'click') // default to just click events
