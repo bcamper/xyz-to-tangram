@@ -85,9 +85,9 @@
 
             var basemap = {
                 import: [
-                    'https://www.nextzen.org/carto/walkabout-style/8/walkabout-style.zip',
-                    'https://www.nextzen.org/carto/walkabout-style/8/themes/walkabout-road-shields-usa.zip',
-                    'https://www.nextzen.org/carto/walkabout-style/8/themes/walkabout-road-shields-international.zip'
+                    'https://www.nextzen.org/carto/walkabout-style/walkabout-style.zip',
+                    'https://www.nextzen.org/carto/walkabout-style/themes/walkabout-road-shields-usa.zip',
+                    'https://www.nextzen.org/carto/walkabout-style/themes/walkabout-road-shields-international.zip'
                 ]
             };
             if (labelsOnTop) {
