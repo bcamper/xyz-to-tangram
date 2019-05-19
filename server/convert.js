@@ -1,11 +1,7 @@
-
 const axios = require('axios');
 const yaml = require('js-yaml');
-// const merge = require('lodash.merge');
 
-// XYZ/Tangram-specifics
 const xyzToTangram = require('../dist/xyz-to-tangram');
-// const basemaps = require('../basemaps'); // basemap options to import alongside XYZ viz
 
 const headers = {
   'Access-Control-Allow-Origin': '*',
@@ -34,40 +30,28 @@ exports.handler = async function handler (event, context, callback) {
     xyzProjectId = 'daf86376-b159-4b9e-bee3-04aa6aca6a10';
   }
 
-  // Load XYZ studio viz JSON
-  const xyzURL = `https://xyz.api.here.com/project-api/projects/${xyzProjectId}`;
-  console.log('requesting XYZ project', xyzURL);
-  let xyzStyle;
   try {
-    xyzStyle = (await axios.get(xyzURL)).data;
-  }
-  catch (e) {
-    response.send(`Couldn't load XYZ Studio project id ${xyzProjectId}!\n${e.stack}`);
-  }
-  // console.log(xyzStyle);
+    // Load XYZ studio viz JSON
+    const xyzURL = `https://xyz.api.here.com/project-api/projects/${xyzProjectId}`;
+    const xyzStyle = (await axios.get(xyzURL)).data;
 
-  // Convert to Tangram scene
-  try {
-    const collide = !(query.collide != null && query.collide == 0);
-    // const labelsOnTop = !(query.labelsOnTop != null && query.labelsOnTop != '' && query.labelsOnTop == 0);
+    // Conversion options
+    const options = {
+      basemap: query.basemap
+    };
 
-    let { scene } = xyzToTangram(xyzStyle, { collide });
+    if (query.collide != null) {
+      options.collide = Boolean(parseFloat(query.collide));
+    }
 
-    // optionally add basemap
-    // if (basemaps[query.basemap]) {
-    //   let tgBasemap = merge({}, basemaps[query.basemap]({ labelsOnTop })); // copy basemap settings
-    //   if (query.basemap_api_key) {
-    //     tgBasemap.global = tgBasemap.global || {};
-    //     tgBasemap.global.sdk_api_key = query.basemap_api_key;
-    //   }
+    if (query.labelsOnTop != null) {
+      options.labelsOnTop = Boolean(parseFloat(query.labelsOnTop));
+    }
 
-    //   // merge XYZ scene and basemap
-    //   // create a new scene object to make sure import/global keys at top (js-yaml processes in insertion order)
-    //   scene = merge({}, tgBasemap, scene);
-    // }
+    // Convert to Tangram scene
+    let { scene } = xyzToTangram(xyzStyle, options);
 
     // output JSON or YAML
-
     if (query.format === 'yaml') {
       headers['Content-Type'] = 'text/plain';
       body = yaml.safeDump(scene);
@@ -88,4 +72,4 @@ exports.handler = async function handler (event, context, callback) {
     headers,
     body
   });
-}
+};

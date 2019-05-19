@@ -1,0 +1,7 @@
+node_modules/
+
+# ignore generated Netlify functions directory
+functions/*
+
+.DS_Store
+.vscode/*
