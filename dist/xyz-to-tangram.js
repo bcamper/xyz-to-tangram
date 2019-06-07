@@ -2267,8 +2267,8 @@
         return { scene: scene, legends: legends };
     }
 
-    // add subject of XYZ Studio JSON as scene metadata
-    // useful for cards functionality, and general reference/debugging
+    // add subset of XYZ Studio JSON as scene metadata
+    // not used by Tangram directly, but useful for cards functionality, and general reference/debugging
     function makeMeta(xyz) {
         var meta = {};
         meta.xyz = { // put under XYZ-specific namespace
@@ -2288,6 +2288,7 @@
         return meta;
     }
 
+    // create a Tangram camera, which will set the map position when the scene is loaded
     function makeCamera(xyz) {
         var pos = xyz.map_settings;
         if (pos &&
@@ -2303,10 +2304,12 @@
         }
     }
 
+    // helper function to construct a Tangram layer name for an XYZ layer
     function getXYZLayerName(xyzLayer, index) {
         return (xyzLayer.meta && xyzLayer.meta.title) || ("layer-" + index);
     }
 
+    // create data Tangram sources
     function makeSources(xyz) {
         // https://xyz.api.here.com/hub/spaces/{space}/tile/web/{z}_{x}_{y}
         return xyz.layers.reduce(function (tgSources, xyzLayer, index) {
@@ -2322,7 +2325,7 @@
                     access_token: access_token,
                     clip: true
                 },
-                max_zoom: 16, // best default?
+                // max_zoom: 16, // using explicit zoom list below for now instead
                 zooms: [0, 2, 4, 6, 8, 10, 12, 14, 16] // load every other zoom
             };
 
@@ -2335,6 +2338,7 @@
         }, {});
     }
 
+    // create Tangram rendering styles
     function makeStyles() {
         // One style per geometry type, with overlay blending
         return ['polygons', 'lines', 'points', 'text'].reduce(function (tgStyles, geomType) {
@@ -2346,6 +2350,7 @@
         }, {});
     }
 
+    // create Tangram layers
     function makeLayers(xyz, legends, tgOptions) {
         // TODO: more general handling of visible flag
         return xyz.layers.filter(function (x) { return x.visible; }).reduce(function (tgLayers, xyzLayer, xyzLayerIndex) {
@@ -2370,6 +2375,7 @@
                 geomTypes.push('Point', 'Line', 'Polygon');
             }
 
+            // For each geometry type in this XYZ layer, create Tangram sub-layers
             geomTypes.forEach(function (geomType) {
                 makeGeometryTypeLayer({ xyz: xyz, xyzLayer: xyzLayer, xyzLayerIndex: xyzLayerIndex, geomType: geomType, tgLayers: tgLayers, tgOptions: tgOptions, legends: legends });
             });
@@ -2378,6 +2384,7 @@
         }, {});
     }
 
+    // create Tangram sub-layers for all style groups of a given geometry type
     function makeGeometryTypeLayer(ref) {
         var xyz = ref.xyz;
         var xyzLayer = ref.xyzLayer;
@@ -2405,11 +2412,12 @@
         });
         var styleRules = (xyzLayer.styleRules && xyzLayer.styleRules[geomType]) || [];
 
+        // Process XYZ style groups
         styleGroups.forEach(function (ref) {
             var styleGroupName = ref[0];
             var styleGroup = ref[1];
 
-            // Find XYZ style rule for this style (if one exists), and create Tangram layer filter
+            // Create a Tangram sub-layer for this style group
             var ref$1 = makeStyleGroupLayer({
                 xyz: xyz, xyzLayerName: xyzLayerName, xyzLayerIndex: xyzLayerIndex,
                 styleRules: styleRules, styleGroupName: styleGroupName, styleGroup: styleGroup, styleGroupPrefix: styleGroupPrefix,
@@ -2434,6 +2442,7 @@
         });
     }
 
+    // create Tangram sub-layer for an XYZ layer style group
     function makeStyleGroupLayer(ref) {
         var styleRules = ref.styleRules;
         var styleGroupName = ref.styleGroupName;
@@ -2467,7 +2476,10 @@
         // while Tangram can represent this as a single draw group, as a point with an outline.
         // coalesceCircleStyles(styleGroup);
 
-        // Combine icon and circle/rect shapes into a single SVG
+        // Combine XYZ icon and circle/rect shapes into a single SVG
+        // This is done because XYZ treats these as independent render entities, which prevents them from
+        // properly overlapping and colliding between each other. By combining them into a single SVG image,
+        // we can render each group as a single Tangram point feature, with proper visual ordering and collision.
         compositeIcons(styleGroup);
 
         // Create Tangram draw groups, one for each XYZ style in this style group
@@ -2502,6 +2514,10 @@
         return { legendName: name };
     }
 
+    // XYZ style groups and style rules are linked through a naming scheme, e.g.:
+    // a style group name `lineStyle_79l75_ceg3xiefz` should be filtered by the corresponding style rule
+    // with id `79l75_rgj1c8o30`
+    // This function finds the appropriate style rule (if there is one) for a given style group
     function matchStyleRules(ref) {
         var styleRules = ref.styleRules;
         var styleGroupName = ref.styleGroupName;
@@ -2514,7 +2530,7 @@
         if (rule) {
             name = rule.name;
             priority = styleRules.findIndex(function (rule) { return styleGroupName === (styleGroupPrefix + "_" + (rule.id)); });
-            tgFilter = makeFilter(rule);
+            tgFilter = makeFilter(rule); // create the Tangram filter for this style rule
         }
         return { name: name, tgFilter: tgFilter, priority: priority };
     }
@@ -2554,10 +2570,11 @@
             return;
         }
 
-        var filter = "function() { return " + (conditions/*.map(c => `(${c})`)*/.join(' && ')) + "; }";
+        var filter = "function() { return " + (conditions.join(' && ')) + "; }";
         return filter;
     }
 
+    // Create a Tangram draw group for a polygon
     function makePolygonStyleLayer(ref) {
         var style = ref.style;
         var styleIndex = ref.styleIndex;
@@ -2591,6 +2608,7 @@
         }
     }
 
+    // Create a Tangram draw group for a line
     function makeLineStyleLayer(ref) {
         var style = ref.style;
         var styleIndex = ref.styleIndex;
@@ -2618,6 +2636,7 @@
         }
     }
 
+    // Create a Tangram draw group for a circle point
     function makeCircleStyleLayer(ref) {
         var style = ref.style;
         var styleIndex = ref.styleIndex;
@@ -2646,6 +2665,7 @@
         }
     }
 
+    // Create a Tangram draw group for an image point, with optional text label
     function makeImageStyleLayer(ref) {
         var style = ref.style;
         var styleIndex = ref.styleIndex;
@@ -2683,6 +2703,7 @@
         }
     }
 
+    // Create a Tangram draw group for a text label
     function makeTextStyleLayer(ref) {
         var style = ref.style;
         var styleIndex = ref.styleIndex;
@@ -2779,6 +2800,7 @@
             "<svg width=\"" + width + "\" height=\"" + height + "\" viewBox=\"0 0 " + width + " " + height + "\" version=\"1.1\"\n            xmlns=\"http://www.w3.org/2000/svg\"\n            xmlns:xlink=\"http://www.w3.org/1999/xlink\">\n";
 
         shapes.forEach(function (s) {
+            // SVG examples as reference
             // <circle cx="25" cy="25" r="20" style="fill: red; stroke: black; stroke-width: 3px;" />
             // <rect x="5" y="5" width="30" height="30" style="fill: red; stroke: black; stroke-width: 3px;" />
             // <image x="0" y="0" width="50" height="50" xlink:href="${url}" />
@@ -2804,7 +2826,7 @@
                 svg += "<image x=\"" + (offsetX - s.width / 2) + "\" y=\"" + (offsetY - s.height / 2) + "\" width=\"" + (s.width) + "\" height=\"" + (s.height) + "\" xlink:href=\"" + (s.src) + "\"/>\n";
             }
 
-            s.skip = true;
+            s.skip = true; // mark the group as one we want to skip (replaced by new combined image)
         });
 
         svg += '</svg>';
@@ -2825,7 +2847,7 @@
         if (texts.length === 1) {
             var text = texts[0];
             image.text = text;
-            text.skip = true;
+            text.skip = true; // mark the group as one we want to skip (now attached to new combined image)
         }
 
         styleGroup.push(image); // add new composited SVG
