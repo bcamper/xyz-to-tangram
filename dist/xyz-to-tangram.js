@@ -2256,6 +2256,7 @@
         scene.styles = makeStyles();
         scene.layers = makeLayers(xyzStyle, legends, options);
         scene.meta = makeMeta(xyzStyle);
+        scene.global = makeGlobals();
 
         // Add basemap
         var basemapGenerator = basemaps[basemap];
@@ -2326,7 +2327,8 @@
                     clip: true
                 },
                 // max_zoom: 16, // using explicit zoom list below for now instead
-                zooms: [0, 2, 4, 6, 8, 10, 12, 14, 16] // load every other zoom
+                zooms: [0, 2, 4, 6, 8, 10, 12, 14, 16], // load every other zoom
+                transform: 'global.add_feature_id' // TODO: remove this when Tangram 0.19 is released (temp solution for 0.18.x)
             };
 
             // add layer bounding box if available (sometimes `bbox` property is an empty array)
@@ -2472,10 +2474,6 @@
             tgStyleLayer.filter = tgFilter;
         }
 
-        // Combine circle styles: XYZ has two circle styles (one for the outline, one for the fill),
-        // while Tangram can represent this as a single draw group, as a point with an outline.
-        // coalesceCircleStyles(styleGroup);
-
         // Combine XYZ icon and circle/rect shapes into a single SVG
         // This is done because XYZ treats these as independent render entities, which prevents them from
         // properly overlapping and colliding between each other. By combining them into a single SVG image,
@@ -2485,7 +2483,7 @@
         // Create Tangram draw groups, one for each XYZ style in this style group
         tgStyleLayer.draw = styleGroup
             .filter(function (s) { return s.opacity > 0; }) // this seems to be used as a general filter to disable symbolizers?
-            .filter(function (s) { return !s.skip; }) // skip pre-processed styles (they've been coalesced into others)
+            .filter(function (s) { return !s.skip; }) // skip pre-processed styles (they've been composited into others)
             .reduce(function (draw, style, styleIndex) {
                 // Add Tangram draw groups for each XYZ style object
                 if (style.type === 'Polygon') {
@@ -2544,24 +2542,45 @@
         var rules = styleRule.r[0]; // TODO: handle multi-element OR properties (Studio doesn't currently support)
         var conditions = [];
         rules.forEach(function (rule) {
+            // Tangram property look-up
+            var prop = rule.property;
+
+            // special handling for `id` and `__id` property handling between XYZ and Tangram
+            if (prop === 'id') { // XYZ property `id`' is for `feature.id` (NOT `feature.properties.id`)
+                // prop = '$id'; // in Tangram, this is accessed through a special `$id` property
+                prop = '_feature_id'; // TODO: remove this when Tangram 0.19 is released (temp solution for 0.18.x)
+            }
+            else if (prop === '__id') { // XYZ property `__id` is for `feature.properties.id` (NOT `feature.id`)
+                prop = 'id'; // in Tangram, this is accessed as a normal feature property
+            }
+
+            var value;
+            if (prop[0] === '$') { // special Tangram accessor prefixed with `$`, use property name directly
+                value = prop; // e.g. `$id`, `$geometry`, `$layer`, etc.
+            }
+            else { // regular feature property
+                value = "feature['" + prop + "']"; // Tangram exposes feature properties in the `feature` object
+            }
+
+            // apply the logic for this operator
             switch (rule.operator) {
                 case 'eq': // equals
-                    conditions.push(("feature['" + (rule.property) + "'] === " + (quoteValue(rule.value))));
+                    conditions.push((value + " == " + (quoteValue(rule.value))));
                     break;
                 case 'neq': // not equals
-                    conditions.push(("feature['" + (rule.property) + "'] !== " + (quoteValue(rule.value))));
+                    conditions.push((value + " != " + (quoteValue(rule.value))));
                     break;
                 case 'lt': // less than
-                    conditions.push(("feature['" + (rule.property) + "'] < " + (quoteValue(rule.value))));
+                    conditions.push((value + " < " + (quoteValue(rule.value))));
                     break;
                 case 'gt': // greater than
-                    conditions.push(("feature['" + (rule.property) + "'] > " + (quoteValue(rule.value))));
+                    conditions.push((value + " > " + (quoteValue(rule.value))));
                     break;
                 case 'em': // is empty
-                    conditions.push(("feature['" + (rule.property) + "'] == null"));
+                    conditions.push((value + " == null"));
                     break;
                 case 'nem': // is not empty
-                    conditions.push(("feature['" + (rule.property) + "'] != null"));
+                    conditions.push((value + " != null"));
                     break;
             }
         });
@@ -2749,6 +2768,16 @@
         }
     }
 
+    // add Tangram global utility functions
+    function makeGlobals() {
+        return {
+            // TODO: remove this when Tangram 0.19 is released (temp solution for 0.18.x)
+            // copy `feature.id` to `feature.properties._feature_id`
+            add_feature_id:
+                "function (data) {\n                const layers = (Array.isArray(data) ? data : [data]); // single or multiple layers\n                Object.values(layers).forEach(layer => {\n                    layer.features.forEach(feature => {\n                        feature.properties['_feature_id'] = feature.id;\n                    })\n                });\n                return data;\n            }"
+        };
+    }
+
     // Calculate Tangram blend order based on XYZ layer position and style zIndex
     function getBlendOrder(style, xyzLayers, xyzLayerIndex) {
         var tgBlendOrderBase = 1;
@@ -2815,7 +2844,7 @@
                 }
                 svg += "<circle cx=\"" + offsetX + "\" cy=\"" + offsetY + "\" r=\"" + (s.radius) + "\" style=\"" + style + "\" />\n";
             }
-            if (s.type === 'Rect') {
+            else if (s.type === 'Rect') {
                 var style$1 = "fill: " + (s.fill) + "; ";
                 if (s.stroke && s.strokeWidth) {
                     style$1 += "stroke: " + (s.stroke) + "; stroke-width: " + (s.strokeWidth) + "px;";
