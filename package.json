@@ -2,7 +2,7 @@
   "name": "xyz-to-tangram",
   "version": "0.0.1",
   "description": "Convert HERE XYZ Studio visualizations to Tangram scenes",
-  "main": "index.js",
+  "main": "dist/xyz-to-tangram.js",
   "scripts": {
     "start": "run-p watch serve",
     "watch": "rollup -c --watch",
