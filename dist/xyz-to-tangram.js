@@ -2324,12 +2324,18 @@
                 // url: `https://xyz.api.here.com/hub/spaces/${spaceId}/tile/quadkey/{q}`,
                 url_params: {
                     access_token: access_token,
-                    clip: true
+                    clip: true,
+                    clientId: 'viewer',
                 },
                 // max_zoom: 16, // using explicit zoom list below for now instead
                 zooms: [0, 2, 4, 6, 8, 10, 12, 14, 16], // load every other zoom
                 transform: 'global.add_feature_id' // TODO: remove this when Tangram 0.19 is released (temp solution for 0.18.x)
             };
+
+            // add comma-delimited list of tags if available
+            if (xyzLayer.meta && Array.isArray(xyzLayer.meta.spaceTags)) {
+                tgSources[name].url_params.tags = xyzLayer.meta.spaceTags.join(',');
+            }
 
             // add layer bounding box if available (sometimes `bbox` property is an empty array)
             // TODO: ignoring bounds for now, because bbox reported by Studio is sometimes incorrect
