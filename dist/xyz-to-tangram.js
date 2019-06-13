@@ -2320,8 +2320,8 @@
 
             tgSources[name] = {
                 type: 'GeoJSON',
-                // url: `https://xyz.api.here.com/hub/spaces/${spaceId}/tile/web/{z}_{x}_{y}`,
-                url: ("https://xyz.api.here.com/hub/spaces/" + spaceId + "/tile/quadkey/{q}"),
+                url: ("https://xyz.api.here.com/hub/spaces/" + spaceId + "/tile/web/{z}_{x}_{y}"),
+                // url: `https://xyz.api.here.com/hub/spaces/${spaceId}/tile/quadkey/{q}`,
                 url_params: {
                     access_token: access_token,
                     clip: true
