@@ -2329,7 +2329,6 @@
                 },
                 // max_zoom: 16, // using explicit zoom list below for now instead
                 zooms: [0, 2, 4, 6, 8, 10, 12, 14, 16], // load every other zoom
-                transform: 'global.add_feature_id' // TODO: remove this when Tangram 0.19 is released (temp solution for 0.18.x)
             };
 
             // add comma-delimited list of tags if available
@@ -2554,8 +2553,7 @@
 
             // special handling for `id` and `__id` property handling between XYZ and Tangram
             if (prop === 'id') { // XYZ property `id`' is for `feature.id` (NOT `feature.properties.id`)
-                // prop = '$id'; // in Tangram, this is accessed through a special `$id` property
-                prop = '_feature_id'; // TODO: remove this when Tangram 0.19 is released (temp solution for 0.18.x)
+                prop = '$id'; // in Tangram, this is accessed through a special `$id` property
             }
             else if (prop === '__id') { // XYZ property `__id` is for `feature.properties.id` (NOT `feature.id`)
                 prop = 'id'; // in Tangram, this is accessed as a normal feature property
@@ -2778,10 +2776,6 @@
     // add Tangram global utility functions
     function makeGlobals() {
         return {
-            // TODO: remove this when Tangram 0.19 is released (temp solution for 0.18.x)
-            // copy `feature.id` to `feature.properties._feature_id`
-            add_feature_id:
-                "function (data) {\n                const layers = (Array.isArray(data) ? data : [data]); // single or multiple layers\n                Object.values(layers).forEach(layer => {\n                    layer.features.forEach(feature => {\n                        feature.properties['_feature_id'] = feature.id;\n                    })\n                });\n                return data;\n            }"
         };
     }
 
