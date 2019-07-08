@@ -7,6 +7,21 @@
     // Basemap options
     var defaultBasemap = 'refill';
 
+    // this gets merged into basemaps to change 'mapzen' vector tile source definitions to their XYZ HERE equivalent
+    // TODO: this does not yet override terrain/normal tiles for hillshading
+    var xyzTilezenSourceOverride = {
+        sources: {
+            mapzen: {
+                url: 'https://xyz.api.here.com/tiles/osmbase/512/all/{z}/{x}/{y}.mvt',
+                url_params: {
+                    'access_token': 'global.xyz_access_token'
+                }
+            }
+        }
+    };
+
+    // basemap scene definitions
+    // each is a function that takes an options object, and returns a Tangram scene object
     var basemaps = {
         // No basemap
         'none': function () {
@@ -15,36 +30,32 @@
 
         // XYZ basemaps
         'dots': function () {
-            return {
-                import: 'https://sensescape.github.io/xyz-dots/scene.yaml'
-            };
+            return Object.assign({}, {import: 'https://sensescape.github.io/xyz-dots/scene.yaml'},
+                xyzTilezenSourceOverride);
         },
         'pixel': function () {
-            return {
-                import: 'https://sensescape.github.io/xyz-pixel/scene.yaml'
-            };
+            return Object.assign({}, {import: 'https://sensescape.github.io/xyz-pixel/scene.yaml'},
+                xyzTilezenSourceOverride);
         },
         'satellite': function () {
-            return {
-                import: [
+            return Object.assign({}, {import: [
                     'https://www.nextzen.org/carto/refill-style/refill-style.zip',
                     'satellite.yaml'
-                ]
-            };
+                ]},
+                xyzTilezenSourceOverride);
         },
 
         // Mapzen basemaps
         'refill': function (ref) {
             var labelsOnTop = ref.labelsOnTop;
 
-            var basemap = {
-                import: [
+            var basemap = Object.assign({}, {import: [
                     'https://www.nextzen.org/carto/refill-style/refill-style.zip',
                     'https://www.nextzen.org/carto/refill-style/themes/label-4.zip',
                     'https://www.nextzen.org/carto/refill-style/themes/terrain-shading-dark.zip',
                     'https://www.nextzen.org/carto/refill-style/themes/no-texture.zip'
-                ]
-            };
+                ]},
+                xyzTilezenSourceOverride);
             if (labelsOnTop) {
                 basemap.styles = {
                     // temp override to put basemap labels on top
@@ -61,12 +72,11 @@
         'refill-dark': function (ref) {
             var labelsOnTop = ref.labelsOnTop;
 
-            var basemap = {
-                import: [
+            var basemap = Object.assign({}, {import: [
                     'https://www.nextzen.org/carto/refill-style/refill-style.zip',
                     'https://www.nextzen.org/carto/refill-style/themes/color-gray-gold.zip',
-                    'https://www.nextzen.org/carto/refill-style/themes/label-4.zip' ]
-            };
+                    'https://www.nextzen.org/carto/refill-style/themes/label-4.zip' ]},
+                xyzTilezenSourceOverride);
             if (labelsOnTop) {
                 basemap.styles = {
                     // temp override to put basemap labels on top
@@ -83,13 +93,12 @@
         'walkabout': function (ref) {
             var labelsOnTop = ref.labelsOnTop;
 
-            var basemap = {
-                import: [
+            var basemap = Object.assign({}, {import: [
                     'https://www.nextzen.org/carto/walkabout-style/walkabout-style.zip',
                     'https://www.nextzen.org/carto/walkabout-style/themes/walkabout-road-shields-usa.zip',
                     'https://www.nextzen.org/carto/walkabout-style/themes/walkabout-road-shields-international.zip'
-                ]
-            };
+                ]},
+                xyzTilezenSourceOverride);
             if (labelsOnTop) {
                 basemap.styles = {
                     // temp override to put basemap labels on top
@@ -2256,7 +2265,7 @@
         scene.styles = makeStyles();
         scene.layers = makeLayers(xyzStyle, legends, options);
         scene.meta = makeMeta(xyzStyle);
-        scene.global = makeGlobals();
+        scene.global = makeGlobals(xyzStyle);
 
         // Add basemap
         var basemapGenerator = basemaps[basemap];
@@ -2776,8 +2785,10 @@
     }
 
     // add Tangram global utility functions
-    function makeGlobals() {
+    function makeGlobals(xyz) {
         return {
+            xyz_access_token: xyz.rot, // access token from XYZ style
+
             // TODO: remove this when Tangram 0.19 is released (temp solution for 0.18.x)
             // copy `feature.id` to `feature.properties._feature_id`
             add_feature_id:
